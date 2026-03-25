@@ -7,6 +7,7 @@ import 'package:adhan/adhan.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../widgets/coming_soon_dialog.dart';
+import 'denah_sakan_screen.dart';
 
 // ============================================================
 // WARNA TEMA — Hitam & Emas
@@ -74,8 +75,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final res = await http.get(Uri.parse(url), headers: {'User-Agent': 'SigmaApp/1.0'});
       if (res.statusCode == 200 && mounted) {
         final addr = (jsonDecode(res.body)['address'] as Map<String, dynamic>?) ?? {};
-        setState(() => _lokasiKota = addr['village'] ?? addr['town'] ?? addr['city'] ?? 'Lokasi Terdeteksi');
-      } else if (mounted) setState(() => _lokasiKota = 'Lokasi Terdeteksi');
+        final v = addr['village'] ?? addr['suburb'] ?? addr['neighbourhood'];
+        final d = addr['city_district'] ?? addr['county'] ?? addr['district'];
+        final c = addr['city'] ?? addr['town'] ?? addr['municipality'] ?? addr['state_district'];
+        final parts = [v, d, c].where((e) => e != null && e.toString().trim().isNotEmpty).toSet().toList();
+        setState(() => _lokasiKota = parts.isNotEmpty ? parts.join(', ') : 'Lokasi Terdeteksi');
+      } else if (mounted) {
+        setState(() => _lokasiKota = 'Lokasi Terdeteksi');
+      }
     } catch (_) { if (mounted) setState(() => _lokasiKota = 'Lokasi Terdeteksi'); }
     _calcPrayer();
   }
@@ -85,10 +92,14 @@ class _HomeScreenState extends State<HomeScreen> {
       .then((result) {
         if (result != null && mounted) {
           final addr = result['address'] ?? {};
+          final v = addr['village'] ?? addr['suburb'] ?? addr['neighbourhood'];
+          final d = addr['city_district'] ?? addr['county'] ?? addr['district'];
+          final c = addr['city'] ?? addr['town'] ?? addr['municipality'] ?? addr['state_district'];
+          final parts = [v, d, c].where((e) => e != null && e.toString().trim().isNotEmpty).toSet().toList();
           setState(() {
             _lat = double.parse(result['lat']);
             _lng = double.parse(result['lon']);
-            _lokasiKota = addr['village'] ?? addr['suburb'] ?? addr['town'] ?? addr['city'] ?? result['name'] ?? 'Wilayah Terpilih';
+            _lokasiKota = parts.isNotEmpty ? parts.join(', ') : (result['name'] ?? 'Wilayah Terpilih');
             _isLoading = true;
           });
           _calcPrayer();
@@ -309,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'icon': Icons.access_time_filled, 'label': 'Jadwal\nShalat'},
       {'icon': Icons.explore,            'label': 'Kiblat'},
       {'icon': Icons.person_outline,     'label': 'Tahlil & Yasin'},
-      {'icon': Icons.nightlight_round,   'label': 'Ramadhan'},
+      {'icon': Icons.map,                'label': 'Denah Sakan'},
       {'icon': Icons.favorite_outline,   'label': 'Zakat &\nSedekah'},
       {'icon': Icons.grid_view,          'label': 'Lainnya'},
     ];
@@ -319,8 +330,13 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisSpacing: 10, mainAxisSpacing: 18, childAspectRatio: 0.85,
       children: items.map((item) {
         final isJadwal = item['label'].toString().contains('Shalat');
+        final isDenah = item['label'].toString().contains('Denah Sakan');
         return GestureDetector(
-          onTap: () => isJadwal ? _showJadwalDialog(ctx) : showComingSoonDialog(ctx, item['label'] as String),
+          onTap: () {
+            if (isJadwal) _showJadwalDialog(ctx);
+            else if (isDenah) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const DenahSakanScreen()));
+            else showComingSoonDialog(ctx, item['label'] as String);
+          },
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Container(
               width: 58, height: 58,
@@ -676,12 +692,20 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
               itemBuilder: (_, i) {
                 final item = _results[i];
                 final addr = item['address'] ?? {};
-                final title = item['name'] ?? 'Wilayah';
-                final parts = [addr['village'], addr['suburb'], addr['city_district'], addr['city'], addr['state']];
-                final sub = parts.where((e) => e != null && e.toString().trim().isNotEmpty && e != title).toSet().join(', ');
+                
+                final v = addr['village'] ?? addr['suburb'] ?? addr['neighbourhood'];
+                final d = addr['city_district'] ?? addr['district'] ?? addr['county'];
+                final c = addr['city'] ?? addr['town'] ?? addr['municipality'] ?? addr['state_district'];
+                
+                final titleParts = [v, d].where((e) => e != null && e.toString().trim().isNotEmpty).toSet().toList();
+                final titleStr = titleParts.isNotEmpty ? titleParts.join(', ') : (item['name'] ?? 'Wilayah');
+                
+                final subParts = [c, addr['state']].where((e) => e != null && e.toString().trim().isNotEmpty).toSet().toList();
+                final subStr = subParts.isNotEmpty ? subParts.join(', ') : 'Indonesia';
+
                 return ListTile(contentPadding: EdgeInsets.zero,
-                  title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: Text(sub.isEmpty ? 'Indonesia' : sub, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                  title: Text(titleStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: Text(subStr, style: const TextStyle(color: Colors.white38, fontSize: 12)),
                   onTap: () => Navigator.pop(context, item));
               },
             )),
