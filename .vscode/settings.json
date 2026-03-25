@@ -1,0 +1,7 @@
+{
+    "search.exclude": {
+        "**/.pub-cache/**": true,
+        "**/android/**": true,
+        "**/snap/flutter/**": true
+    }
+}
