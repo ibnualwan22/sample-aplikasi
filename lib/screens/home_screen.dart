@@ -12,6 +12,7 @@ import '../widgets/coming_soon_dialog.dart';
 import '../services/api_service.dart';
 import 'denah_sakan_screen.dart';
 import 'hasil_tes_screen.dart';
+import 'tafsir_screen.dart';
 
 // ============================================================
 // WARNA TEMA — Hitam & Emas
@@ -424,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'icon': Icons.volunteer_activism, 'label': 'Wirid & Doa'},
       {'icon': Icons.access_time_filled, 'label': 'Jadwal\nShalat'},
       {'icon': Icons.explore,            'label': 'Kiblat'},
-      {'icon': Icons.person_outline,     'label': 'Tahlil & Yasin'},
+      {'icon': Icons.auto_stories,       'label': 'Tafsir'},
       {'icon': Icons.map,                'label': 'Denah Sakan'},
       {'icon': Icons.assignment,         'label': 'Hasil Tes'},
       {'icon': Icons.grid_view,          'label': 'Lainnya'},
@@ -439,10 +440,12 @@ class _HomeScreenState extends State<HomeScreen> {
         final isHasilTes = item['label'].toString().contains('Hasil Tes');
         return GestureDetector(
           onTap: () {
+            final label = item['label'] as String;
             if (isJadwal) _showJadwalDialog(ctx);
             else if (isDenah) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const DenahSakanScreen()));
             else if (isHasilTes) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const HasilTesScreen()));
-            else showComingSoonDialog(ctx, item['label'] as String);
+            else if (label == 'Tafsir') Navigator.push(ctx, MaterialPageRoute(builder: (_) => const TafsirScreen()));
+            else showComingSoonDialog(ctx, label);
           },
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Container(
