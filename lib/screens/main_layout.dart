@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'quran_screen.dart';
 import 'sigma_laporan_screen.dart';
+import 'calendar_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -17,7 +18,7 @@ class _MainLayoutState extends State<MainLayout> {
     const HomeScreen(),
     const QuranScreen(),
     const SigmaLaporanScreen(),
-    const Center(child: Text("Kalender Hijriah (Coming Soon)", style: TextStyle(color: Color(0xFFD4AF37)))),
+    const CalendarScreen(),
     const Center(child: Text("Pengaturan", style: TextStyle(color: Color(0xFFD4AF37)))),
   ];
 

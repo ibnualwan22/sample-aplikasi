@@ -6,8 +6,12 @@ import 'package:intl/intl.dart';
 import 'package:adhan/adhan.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+import 'package:shorebird_code_push/shorebird_code_push.dart';
 import '../widgets/coming_soon_dialog.dart';
+import '../services/api_service.dart';
 import 'denah_sakan_screen.dart';
+import 'hasil_tes_screen.dart';
 
 // ============================================================
 // WARNA TEMA — Hitam & Emas
@@ -43,12 +47,113 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _nextPrayerDt;
   Timer?    _timer;
 
+  bool _isLoadingInstagram = true;
+  List<dynamic> _instagramPosts = [];
+
+  final _shorebirdUpdater = ShorebirdUpdater();
+
   @override
   void initState() {
     super.initState();
     _currentDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
     _determinePosition();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateCountdown());
+    _fetchInstagramPosts();
+    _checkForUpdates();
+  }
+
+  Future<void> _checkForUpdates() async {
+    try {
+      if (!_shorebirdUpdater.isAvailable) return;
+      
+      final currentPatch = await _shorebirdUpdater.readCurrentPatch();
+      final currentVersion = currentPatch?.number ?? 0;
+      
+      final status = await _shorebirdUpdater.checkForUpdate();
+      
+      if (status == UpdateStatus.outdated && mounted) {
+        _showUpdateDialog(context, currentVersion);
+      }
+    } catch (e) {
+      debugPrint('Shorebird error: $e');
+    }
+  }
+
+  void _showUpdateDialog(BuildContext ctx, int currentVersion) {
+    showDialog(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: kBgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.system_update_alt, color: kGold),
+            SizedBox(width: 10),
+            Text('Pembaruan SIGMA', style: TextStyle(color: kGold, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Terdapat versi pembaruan aplikasi terbaru dari Markaz. (Versi Lama Anda: v$currentVersion)', style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
+            const SizedBox(height: 16),
+            const Text('Isi Pembaruan:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            const Text('• Perbaikan sistem aplikasi\n• Pembaharuan halaman antarmuka\n• Peningkatan stabilisasi fitur baru', style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
+            const SizedBox(height: 20),
+            const Text('Silakan unduh untuk memperbarui.', style: TextStyle(color: kGoldLight, fontSize: 12, fontStyle: FontStyle.italic)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Nanti Saja', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kGold,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Mengunduh Pembaruan di Latar Belakang...')));
+              try {
+                await _shorebirdUpdater.update();
+                if (ctx.mounted) {
+                  showDialog(
+                    context: ctx, builder: (_) => AlertDialog(
+                      backgroundColor: kBgCard,
+                      title: const Text('Berhasil Diunduh!', style: TextStyle(color: kGold)),
+                      content: const Text('Silakan tutup aplikasi ini sepenuhnya (Hapus dari Recent Apps) dan buka Google/Aplikasi kembali untuk menikmati fitur baru!', style: TextStyle(color: Colors.white70)),
+                      actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text('Mengerti', style: TextStyle(color: kGold)))],
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Gagal mengunduh pembaruan.')));
+              }
+            },
+            child: const Text('Unduh Sekarang', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      )
+    );
+  }
+
+  Future<void> _fetchInstagramPosts() async {
+    final response = await ApiService.getInstagramPosts();
+    if (mounted) {
+      if (response != null && response['success'] == true) {
+        setState(() {
+          _instagramPosts = response['data'] ?? [];
+          _isLoadingInstagram = false;
+        });
+      } else {
+        setState(() => _isLoadingInstagram = false);
+      }
+    }
   }
 
   @override
@@ -212,9 +317,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildBanner()),
             const SizedBox(height: 20),
-            _buildSectionTitle('Headline', context),
+            _buildSectionTitle('Konten Instagram', context),
             const SizedBox(height: 12),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildArticleList(context)),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildInstagramList(context)),
             const SizedBox(height: 30),
           ],
         ),
@@ -321,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'icon': Icons.explore,            'label': 'Kiblat'},
       {'icon': Icons.person_outline,     'label': 'Tahlil & Yasin'},
       {'icon': Icons.map,                'label': 'Denah Sakan'},
-      {'icon': Icons.favorite_outline,   'label': 'Zakat &\nSedekah'},
+      {'icon': Icons.assignment,         'label': 'Hasil Tes'},
       {'icon': Icons.grid_view,          'label': 'Lainnya'},
     ];
     return GridView.count(
@@ -331,10 +436,12 @@ class _HomeScreenState extends State<HomeScreen> {
       children: items.map((item) {
         final isJadwal = item['label'].toString().contains('Shalat');
         final isDenah = item['label'].toString().contains('Denah Sakan');
+        final isHasilTes = item['label'].toString().contains('Hasil Tes');
         return GestureDetector(
           onTap: () {
             if (isJadwal) _showJadwalDialog(ctx);
             else if (isDenah) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const DenahSakanScreen()));
+            else if (isHasilTes) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const HasilTesScreen()));
             else showComingSoonDialog(ctx, item['label'] as String);
           },
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -433,36 +540,133 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ──────────────────────────────────────────────────────────
-  // ARTICLE LIST
+  // INSTAGRAM LIST
   // ──────────────────────────────────────────────────────────
-  Widget _buildArticleList(BuildContext ctx) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(3, (i) => GestureDetector(
-          onTap: () => showComingSoonDialog(ctx, 'Artikel ${i + 1}'),
-          child: Container(
-            width: 230, margin: const EdgeInsets.only(right: 14),
-            decoration: BoxDecoration(
-              color: kBgCard, borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: kGold.withOpacity(0.15))),
-            clipBehavior: Clip.antiAlias,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(height: 100, color: kGoldDim,
-                child: const Center(child: Icon(Icons.article, color: kGoldLight, size: 32))),
-              Padding(padding: const EdgeInsets.all(10), child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Tradisi Markaz Arabiyah #${i + 1}',
-                    style: const TextStyle(color: kTextPri, fontSize: 13, fontWeight: FontWeight.bold),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  const Text('Belajar bahasa Arab secara mendalam dan menyeluruh...',
-                    style: TextStyle(color: kTextSec, fontSize: 11),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                ])),
-            ]),
-          ),
-        )),
+  Widget _buildInstagramList(BuildContext ctx) {
+    if (_isLoadingInstagram) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(color: kGold),
+        ),
+      );
+    }
+    
+    if (_instagramPosts.isEmpty) {
+      return Center(
+        child: Text(
+          'Belum ada konten Instagram',
+          style: TextStyle(color: kTextSec.withOpacity(0.5)),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 280,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: _instagramPosts.map((post) {
+            final url = post['url'] as String?;
+            if (url == null || url.isEmpty) return const SizedBox();
+            
+            final title = post['judul'] ?? 'Postingan Markaz';
+            return GestureDetector(
+              onTap: () async {
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal memuat alamat Web')));
+                }
+              },
+              child: Container(
+                width: 280,
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFF56040), Color(0xFFFCAF45)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFFFD1D1D).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  children: [
+                    if (post['thumbnailUrl'] != null && post['thumbnailUrl'].toString().isNotEmpty)
+                      Positioned.fill(
+                        child: Image.network(
+                          post['thumbnailUrl'].toString(),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox(),
+                        ),
+                      ),
+                    if (post['thumbnailUrl'] != null && post['thumbnailUrl'].toString().isNotEmpty)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.black54, Colors.transparent, Colors.black87],
+                              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (post['thumbnailUrl'] == null || post['thumbnailUrl'].toString().isEmpty)
+                      Positioned(
+                        right: -30, top: -30,
+                        child: Icon(Icons.camera_alt, size: 140, color: Colors.white.withOpacity(0.15)),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), borderRadius: BorderRadius.circular(20)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.open_in_browser, color: Colors.white, size: 14),
+                                SizedBox(width: 6),
+                                Text('Lihat di Instagram', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.3),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  const Icon(Icons.touch_app, color: Colors.white70, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text('Sentuh untuk Membuka IG', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -719,12 +923,15 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
                   backgroundColor: kGold, padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 onPressed: () { Navigator.pop(context); widget.onUseGps(); },
-              )),
+               )),
         ]),
       ),
-      actions: [TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Batal', style: TextStyle(color: Colors.grey)))],
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+        ),
+      ],
     );
   }
 }

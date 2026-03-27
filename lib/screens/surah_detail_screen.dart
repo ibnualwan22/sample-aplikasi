@@ -35,6 +35,10 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   // Ukuran font bisa disesuaikan pengguna
   double _arabicFontSize = 26.0;
 
+  // Pagination
+  int _currentPage = 0;
+  final int _versesPerPage = 12;
+
   @override
   void initState() {
     super.initState();
@@ -193,6 +197,13 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
           ),
           _headerPill('${_surahData!['number_of_ayahs']} Ayat'),
         ]),
+        const SizedBox(height: 12),
+        // Page indicator
+        if (_surahData != null && _surahData!['ayahs'] != null)
+          Text(
+            'Halaman ${_currentPage + 1} / ${((_surahData!['ayahs'] as List).length / _versesPerPage).ceil()}',
+            style: const TextStyle(color: kGoldLight, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
         // Basmallah
         if (widget.surahNumber != 1 && widget.surahNumber != 9)
           Padding(
@@ -220,13 +231,26 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   // ── MODE AYAT ───────────────────────────────────────────────
   Widget _buildAyahMode() {
     final ayahs = _surahData!['ayahs'] as List;
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-      itemCount: ayahs.length,
-      itemBuilder: (_, i) {
-        final ayah = ayahs[i];
-        final num  = ayah['ayah_number'] as int;
-        final arab = _cleanAyah(ayah['arab'] as String, num);
+    if (ayahs.isEmpty) return const SizedBox();
+    
+    final totalPages = (ayahs.length / _versesPerPage).ceil();
+
+    return PageView.builder(
+      physics: const BouncingScrollPhysics(),
+      itemCount: totalPages,
+      onPageChanged: (i) => setState(() => _currentPage = i),
+      itemBuilder: (context, pageIndex) {
+        final start = pageIndex * _versesPerPage;
+        final end = (start + _versesPerPage > ayahs.length) ? ayahs.length : start + _versesPerPage;
+        final pageAyahs = ayahs.sublist(start, end);
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          itemCount: pageAyahs.length,
+          itemBuilder: (_, i) {
+            final ayah = pageAyahs[i];
+            final num  = ayah['ayah_number'] as int;
+            final arab = _cleanAyah(ayah['arab'] as String, num);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 4),
@@ -298,79 +322,86 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
         );
       },
     );
+      },
+    );
   }
 
   // ── MODE HALAMAN (MUSHAF) ───────────────────────────────────
   Widget _buildPageMode() {
     final ayahs = _surahData!['ayahs'] as List;
+    if (ayahs.isEmpty) return const SizedBox();
 
-    // Bangun spans dengan nomor ayat sebagai ornamen bulat inline
-    final List<InlineSpan> spans = [];
-    for (int i = 0; i < ayahs.length; i++) {
-      final ayah = ayahs[i];
-      final num  = ayah['ayah_number'] as int;
-      final arab = _cleanAyah(ayah['arab'] as String, num);
+    final totalPages = (ayahs.length / _versesPerPage).ceil();
 
-      // Teks ayat
-      spans.add(TextSpan(
-        text: '$arab ',
-        style: GoogleFonts.amiri(
-          fontSize: _arabicFontSize,
-          color: kTextPri,
-          height: 2.1,
-        ),
-      ));
-
-      // Nomor ayat — lingkaran emas inline via WidgetSpan
-      spans.add(WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        child: _AyahNumberBadge(number: num, arabicNumber: _toArabicNumber(num)),
-      ));
-
-      spans.add(const TextSpan(text: ' '));
-    }
-
-    return SingleChildScrollView(
+    return PageView.builder(
       physics: const BouncingScrollPhysics(),
-      child: Column(children: [
-        // Info halaman (opsional, dari API jika ada)
-        _buildPageInfoBar(),
-        // Halaman mushaf
-        Container(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 20),
-          decoration: BoxDecoration(
-            color: kBgCard,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: kGold.withOpacity(0.18), width: 1),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 8)),
-            ],
-          ),
-          child: Column(children: [
-            // Bingkai atas halaman
-            _PageBorder(isTop: true),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
-              child: Text.rich(
-                TextSpan(children: spans),
-                textAlign: TextAlign.justify,
-                textDirection: TextDirection.rtl,
-                strutStyle: const StrutStyle(
-                  forceStrutHeight: true,
-                  height: 2.2,
-                  leading: 0.5,
-                ),
-              ),
+      itemCount: totalPages,
+      onPageChanged: (i) => setState(() => _currentPage = i),
+      itemBuilder: (context, pageIndex) {
+        final start = pageIndex * _versesPerPage;
+        final end = (start + _versesPerPage > ayahs.length) ? ayahs.length : start + _versesPerPage;
+        final pageAyahs = ayahs.sublist(start, end);
+
+        final List<InlineSpan> spans = [];
+        for (int i = 0; i < pageAyahs.length; i++) {
+          final ayah = pageAyahs[i];
+          final num  = ayah['ayah_number'] as int;
+          final arab = _cleanAyah(ayah['arab'] as String, num);
+
+          spans.add(TextSpan(
+            text: '$arab ﴿${_toArabicNumber(num)}﴾ ',
+            style: GoogleFonts.amiri(
+              fontSize: _arabicFontSize + 2, // sedikit lebih besar agar terbaca jelas
+              color: kTextPri,
+              height: 2.2,
+              fontWeight: FontWeight.w600, // lebih tebal dan rapi layaknya mushaf
             ),
-            // Bingkai bawah halaman
-            _PageBorder(isTop: false),
+          ));
+        }
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(children: [
+            // Info halaman (opsional, dari API jika ada)
+            _buildPageInfoBar(pageIndex + 1, totalPages),
+            // Halaman mushaf
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+              decoration: BoxDecoration(
+                color: kBgCard,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: kGold.withOpacity(0.18), width: 1),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 8)),
+                ],
+              ),
+              child: Column(children: [
+                // Bingkai atas halaman
+                const _PageBorder(isTop: true),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+                  child: Text.rich(
+                    TextSpan(children: spans),
+                    textAlign: TextAlign.justify,
+                    textDirection: TextDirection.rtl,
+                    strutStyle: const StrutStyle(
+                      forceStrutHeight: true,
+                      height: 2.2,
+                      leading: 0.5,
+                    ),
+                  ),
+                ),
+                // Bingkai bawah halaman
+                const _PageBorder(isTop: false),
+              ]),
+            ),
           ]),
-        ),
-      ]),
+        );
+      },
     );
   }
 
-  Widget _buildPageInfoBar() {
+  Widget _buildPageInfoBar(int current, int total) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       color: kBgCard2,
@@ -380,40 +411,10 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
           Text(widget.surahName,
             style: const TextStyle(color: kGoldLight, fontSize: 13, fontWeight: FontWeight.w600)),
           Text(
-            _surahData != null ? 'Surah ke-${widget.surahNumber}' : '',
+            'Halaman $current / $total',
             style: const TextStyle(color: kTextSec, fontSize: 12),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Widget Nomor Ayat Inline (Mushaf style) ──────────────────
-class _AyahNumberBadge extends StatelessWidget {
-  final int number;
-  final String arabicNumber;
-  const _AyahNumberBadge({required this.number, required this.arabicNumber});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 34, height: 34,
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFF3A2E0A),
-        border: Border.all(color: kGold, width: 1),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        arabicNumber,
-        style: GoogleFonts.amiri(
-          fontSize: 13,
-          color: kGoldLight,
-          height: 1,
-        ),
-        textAlign: TextAlign.center,
       ),
     );
   }

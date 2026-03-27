@@ -56,18 +56,29 @@ class ApiService {
     return null;
   }
 
-  // Mengambil detail Surah berserta ayat-ayatnya dari MyQuran
+  // Mengambil detail Surah berserta ayat-ayatnya dari equran.id (menjamin full ayat)
   static Future<Map<String, dynamic>?> getSurahDetail(int surahNumber) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/quran/$surahNumber'));
+      final response = await http.get(Uri.parse('https://equran.id/api/v2/surat/$surahNumber'));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        if (json['status'] == true && json['data'] != null) {
-          return json['data'];
+        if (json['code'] == 200 && json['data'] != null) {
+          final data = json['data'];
+          // Konversi format equran ke format existing aplikasi
+          return {
+            'number_of_ayahs': data['jumlahAyat'],
+            'name': data['nama'],
+            'revelation': data['tempatTurun'],
+            'ayahs': (data['ayat'] as List).map((a) => {
+              'ayah_number': a['nomorAyat'],
+              'arab': a['teksArab'],
+              'translation': a['teksIndonesia'],
+            }).toList(),
+          };
         }
       }
     } catch (e) {
-      print('Error getSurahDetail: \$e');
+      print('Error getSurahDetail: $e');
     }
     return null;
   }
@@ -79,6 +90,46 @@ class ApiService {
       return jsonDecode(response.body);
     } catch (e) {
       print('Error getLaporanSigma: $e');
+    }
+    return null;
+  }
+
+  // Mengambil Hasil Tes dari API SIGMA (Vercel)
+  static Future<Map<String, dynamic>?> getHasilTes() async {
+    try {
+      final response = await http.get(Uri.parse('https://sistem-akademik-markaz.vercel.app/api/mobile/hasil-tes'));
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('Error getHasilTes: $e');
+    }
+    return null;
+  }
+
+  // Mengambil daftar postingan Instagram dari API SIGMA (Vercel)
+  static Future<Map<String, dynamic>?> getInstagramPosts() async {
+    try {
+      final response = await http.get(Uri.parse('https://sistem-akademik-markaz.vercel.app/api/instagram/feed'));
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('Error getInstagramPosts: $e');
+    }
+    return null;
+  }
+
+  // Mengambil agenda rutinan dari API SIGMA (Vercel)
+  static Future<Map<String, dynamic>?> getAgenda({int? month, int? year}) async {
+    try {
+      String url = 'https://sistem-akademik-markaz.vercel.app/api/mobile/agenda';
+      List<String> queryParams = [];
+      if (month != null) queryParams.add('month=$month');
+      if (year != null) queryParams.add('year=$year');
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
+      }
+      final response = await http.get(Uri.parse(url));
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('Error getAgenda: $e');
     }
     return null;
   }
