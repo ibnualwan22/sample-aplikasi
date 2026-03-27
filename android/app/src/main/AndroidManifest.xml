@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Izin untuk dapat menarik API secara Online dari aplikasi -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Izin untuk sensor kompas (Kiblat) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-feature android:name="android.hardware.sensor.compass" android:required="true" />
     <!-- Izin untuk melacak GPS sesuai paket geolocator -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>

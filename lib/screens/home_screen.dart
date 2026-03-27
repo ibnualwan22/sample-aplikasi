@@ -11,8 +11,12 @@ import 'package:shorebird_code_push/shorebird_code_push.dart';
 import '../widgets/coming_soon_dialog.dart';
 import '../services/api_service.dart';
 import 'denah_sakan_screen.dart';
+import 'kiblat_screen.dart';
 import 'hasil_tes_screen.dart';
 import 'tafsir_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'instagram_grid_screen.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 // ============================================================
 // WARNA TEMA — Hitam & Emas
@@ -50,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isLoadingInstagram = true;
   List<dynamic> _instagramPosts = [];
+  late final WebViewController _elfsightWebViewController;
 
   final _shorebirdUpdater = ShorebirdUpdater();
 
@@ -61,6 +66,58 @@ class _HomeScreenState extends State<HomeScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateCountdown());
     _fetchInstagramPosts();
     _checkForUpdates();
+
+    _elfsightWebViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (NavigationRequest request) async {
+            final url = request.url;
+            
+            // Biarkan skrip internal WebView berjalan dengan aman
+            if (url.startsWith('data:') || url.contains('elfsightcdn.com')) {
+              return NavigationDecision.navigate;
+            }
+
+            // Cegat semua tautan ke luar, termasuk intent khusus Android (Instagram)
+            Uri uri;
+            if (url.startsWith('intent://')) {
+              // Konversi Android intent URL kembali ke link web standar
+              // Contoh: intent://instagram.com/_u/foo... -> https://instagram.com/_u/foo...
+              final cleanStr = url.replaceFirst('intent://', 'https://').split('#Intent').first;
+              uri = Uri.parse(cleanStr);
+            } else {
+              uri = Uri.parse(url);
+            }
+
+            try {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat membuka aplikasi Instagram')));
+              }
+            } catch (e) {
+              debugPrint('NavigationError: $e');
+            }
+            
+            return NavigationDecision.prevent; // Tolak render ke WebView karena kita sudah melemparnya ke Aplikasi!
+          },
+        ),
+      )
+      ..loadHtmlString('''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>body { margin: 0; padding: 0; background-color: #0A0A0A; }</style>
+</head>
+<body>
+  <script src="https://elfsightcdn.com/platform.js" async></script>
+  <div class="elfsight-app-6f1e26c4-1501-4e35-9fc8-c7d3ab6c84ad" data-elfsight-app-lazy></div>
+</body>
+</html>
+      ''');
   }
 
   Future<void> _checkForUpdates() async {
@@ -147,8 +204,22 @@ class _HomeScreenState extends State<HomeScreen> {
     final response = await ApiService.getInstagramPosts();
     if (mounted) {
       if (response != null && response['success'] == true) {
+        final List<dynamic> posts = response['data'] ?? [];
+        
+        // Auto-Scrape for missing thumbnails
+        await Future.wait(posts.map((post) async {
+          final tUrl = post['thumbnailUrl'];
+          final pUrl = post['url'];
+          if ((tUrl == null || tUrl.toString().isEmpty) && pUrl != null && pUrl.toString().isNotEmpty) {
+            final extracted = await ApiService.extractInstagramThumbnail(pUrl.toString());
+            if (extracted != null) {
+              post['thumbnailUrl'] = extracted;
+            }
+          }
+        }));
+
         setState(() {
-          _instagramPosts = response['data'] ?? [];
+          _instagramPosts = posts;
           _isLoadingInstagram = false;
         });
       } else {
@@ -435,15 +506,17 @@ class _HomeScreenState extends State<HomeScreen> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 10, mainAxisSpacing: 18, childAspectRatio: 0.85,
       children: items.map((item) {
-        final isJadwal = item['label'].toString().contains('Shalat');
-        final isDenah = item['label'].toString().contains('Denah Sakan');
+        final isJadwal   = item['label'].toString().contains('Shalat');
+        final isDenah    = item['label'].toString().contains('Denah Sakan');
         final isHasilTes = item['label'].toString().contains('Hasil Tes');
+        final isKiblat   = item['label'].toString().contains('Kiblat');
         return GestureDetector(
           onTap: () {
             final label = item['label'] as String;
             if (isJadwal) _showJadwalDialog(ctx);
             else if (isDenah) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const DenahSakanScreen()));
             else if (isHasilTes) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const HasilTesScreen()));
+            else if (isKiblat) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const KiblatScreen()));
             else if (label == 'Tafsir') Navigator.push(ctx, MaterialPageRoute(builder: (_) => const TafsirScreen()));
             else showComingSoonDialog(ctx, label);
           },
@@ -527,6 +600,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // SECTION TITLE
   // ──────────────────────────────────────────────────────────
   Widget _buildSectionTitle(String title, BuildContext ctx) {
+    bool isIG = title.contains('Instagram');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -536,7 +610,13 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(title, style: const TextStyle(color: kTextPri, fontSize: 18, fontWeight: FontWeight.bold)),
         ]),
         GestureDetector(
-          onTap: () => showComingSoonDialog(ctx, 'Semua Artikel'),
+          onTap: () {
+            if (isIG) {
+              Navigator.push(ctx, MaterialPageRoute(builder: (_) => const InstagramGridScreen()));
+            } else {
+              showComingSoonDialog(ctx, 'Semua Artikel');
+            }
+          },
           child: const Icon(Icons.chevron_right, color: kTextSec)),
       ]),
     );
@@ -546,131 +626,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // INSTAGRAM LIST
   // ──────────────────────────────────────────────────────────
   Widget _buildInstagramList(BuildContext ctx) {
-    if (_isLoadingInstagram) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: CircularProgressIndicator(color: kGold),
-        ),
-      );
-    }
-    
-    if (_instagramPosts.isEmpty) {
-      return Center(
-        child: Text(
-          'Belum ada konten Instagram',
-          style: TextStyle(color: kTextSec.withOpacity(0.5)),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 280,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: _instagramPosts.map((post) {
-            final url = post['url'] as String?;
-            if (url == null || url.isEmpty) return const SizedBox();
-            
-            final title = post['judul'] ?? 'Postingan Markaz';
-            return GestureDetector(
-              onTap: () async {
-                final uri = Uri.parse(url);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                } else {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal memuat alamat Web')));
-                }
-              },
-              child: Container(
-                width: 280,
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFF56040), Color(0xFFFCAF45)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFFFD1D1D).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  children: [
-                    if (post['thumbnailUrl'] != null && post['thumbnailUrl'].toString().isNotEmpty)
-                      Positioned.fill(
-                        child: Image.network(
-                          post['thumbnailUrl'].toString(),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const SizedBox(),
-                        ),
-                      ),
-                    if (post['thumbnailUrl'] != null && post['thumbnailUrl'].toString().isNotEmpty)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.black54, Colors.transparent, Colors.black87],
-                              begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (post['thumbnailUrl'] == null || post['thumbnailUrl'].toString().isEmpty)
-                      Positioned(
-                        right: -30, top: -30,
-                        child: Icon(Icons.camera_alt, size: 140, color: Colors.white.withOpacity(0.15)),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), borderRadius: BorderRadius.circular(20)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.open_in_browser, color: Colors.white, size: 14),
-                                SizedBox(width: 6),
-                                Text('Lihat di Instagram', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.3),
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  const Icon(Icons.touch_app, color: Colors.white70, size: 16),
-                                  const SizedBox(width: 8),
-                                  Text('Sentuh untuk Membuka IG', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
+    return Container(
+      height: 480, // Memberikan batasan tinggi agar WebView bisa memuat konten embed
+      decoration: BoxDecoration(
+        color: kBgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kGold.withOpacity(0.3)),
       ),
+      clipBehavior: Clip.antiAlias,
+      child: WebViewWidget(controller: _elfsightWebViewController),
     );
   }
 }

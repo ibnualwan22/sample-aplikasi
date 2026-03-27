@@ -229,4 +229,31 @@ class ApiService {
     }
     return null;
   }
+
+  /// Ekstraktor (Scraper Otomatis) untuk mencari Original Image dari URL post Instagram
+  /// agar admin tidak perlu upload URL Thumbnail secara manual.
+  static Future<String?> extractInstagramThumbnail(String url) async {
+    try {
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+      );
+      if (res.statusCode == 200) {
+        // Cari tag meta property="og:image" content="..."
+        final match = RegExp(r'<meta property="og:image" content="([^"]+)"')
+            .firstMatch(res.body);
+        if (match != null && match.groupCount >= 1) {
+          final ogImageUrl = match.group(1)!;
+          // Decode URL HTML specifiers if any
+          return ogImageUrl.replaceAll('&amp;', '&');
+        }
+      }
+    } catch (e) {
+      print('Error extractInstagramThumbnail: $e');
+    }
+    return null;
+  }
 }

@@ -215,7 +215,7 @@ class _DenahSakanScreenState extends State<DenahSakanScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
-                child: const Text('Saya (Nailong)', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                child: const Text('Saya di sini', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 2),
               // Nailong icon using network image or placeholder emoji
