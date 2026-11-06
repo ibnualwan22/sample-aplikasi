@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="838" viewBox="0 0 1180 838" font-family="DejaVu Sans, sans-serif" role="img" aria-labelledby="title desc"><title id="title">Rancangan SIAKAD Markaz Arabiyah</title><desc id="desc">Navigasi umum saat login NIS. Setelah login, beranda SIAKAD berisi jam, waktu salat, kartu fitur dan tombol Halaman umum. Perizinan memakai navigasi bawah SIAKAD. Semua data bersifat ilustratif.</desc>
+<rect x="0" y="0" width="1180" height="838" rx="0" fill="#F4F1E9" stroke="none" stroke-width="1"/>
+<text x="40" y="43" text-anchor="start" font-size="12" font-weight="700" fill="#766331" letter-spacing="1.1">MARKAZ ARABIYAH   /   RENCANA APLIKASI ANDROID</text>
+<text x="40" y="93" text-anchor="start" font-size="40" font-weight="700" fill="#242620" letter-spacing="0">SIAKAD di tangan santri</text>
+<text x="40" y="126" text-anchor="start" font-size="15" font-weight="400" fill="#50544D" letter-spacing="0">Tiga layar dari alur santri. Isi data di bawah hanya untuk ilustrasi.</text>
+<text x="40" y="175" text-anchor="start" font-size="13" font-weight="700" fill="#766331" letter-spacing="0">01</text>
+<text x="73" y="175" text-anchor="start" font-size="16" font-weight="700" fill="#242620" letter-spacing="0">Masuk dengan NIS</text>
+<g transform="translate(40 196)">
+<rect x="0" y="0" width="348" height="590" rx="18" fill="#121212" stroke="none" stroke-width="1"/>
+<g transform="translate(20 20) scale(0.7916666666666666)"><path d="M19 12H5 M11 5l-7 7 7 7" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="53" y="35" text-anchor="start" font-size="15" font-weight="600" fill="#ECEBE6" letter-spacing="0">Kembali ke beranda</text>
+<path d="M0 55L348 55" stroke="#363735" fill="none"/>
+<g transform="translate(21 88) scale(1.5833333333333333)"><path d="M2 9l10-5 10 5-10 5L2 9z M6 11v5q6 5 12 0v-5 M22 9v7" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="20" y="170" text-anchor="start" font-size="36" font-weight="700" fill="#ECEBE6" letter-spacing="0">SIAKAD</text>
+<text x="20" y="198" text-anchor="start" font-size="22" font-weight="500" fill="#ECEBE6" letter-spacing="0">Markaz Arabiyah</text>
+<text x="20" y="240" text-anchor="start" font-size="15" font-weight="400" fill="#B7B6AF" letter-spacing="0">Gunakan NIS yang sama dengan</text>
+<text x="20" y="262" text-anchor="start" font-size="15" font-weight="400" fill="#B7B6AF" letter-spacing="0">akun santri di website.</text>
+<text x="20" y="323" text-anchor="start" font-size="14" font-weight="600" fill="#ECEBE6" letter-spacing="0">Nomor Induk Santri</text>
+<rect x="20" y="337" width="308" height="49" rx="6" fill="#1E1E1E" stroke="#686965" stroke-width="1"/>
+<g transform="translate(33 351) scale(0.8333333333333334)"><path d="M4 5h16v14H4z M7 10a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M6.5 16q2.5-4 5 0 M14 10h3 M14 14h3" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="66" y="367" text-anchor="start" font-size="15" font-weight="400" fill="#B7B6AF" letter-spacing="0">Masukkan NIS</text>
+<rect x="20" y="409" width="308" height="48" rx="7" fill="#D4AF37" stroke="none" stroke-width="1"/>
+<g transform="translate(37 422) scale(0.875)"><path d="M5 12h14 M13 6l6 6-6 6" stroke="#121212" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="67" y="439" text-anchor="start" font-size="15" font-weight="700" fill="#121212" letter-spacing="0">Masuk</text>
+<path d="M1 525L347 525" stroke="#363735" fill="none"/>
+<g transform="translate(26.0 538) scale(0.75)"><path d="M2 11l10-8 10 8 M5 10v11h5v-7h4v7h5V10" stroke="#AAA9A3" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="35.0" y="574" text-anchor="middle" font-size="10" font-weight="400" fill="#AAA9A3" letter-spacing="0">Home</text>
+<g transform="translate(95.5 538) scale(0.75)"><path d="M2 4q6-1 10 2q5-3 10-2v15q-6-1-10 2q-5-3-10-2V4 M12 6v15" stroke="#AAA9A3" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="104.5" y="574" text-anchor="middle" font-size="10" font-weight="400" fill="#AAA9A3" letter-spacing="0">Al-Qur’an</text>
+<rect x="159.0" y="525" width="30" height="2" rx="1" fill="#D4AF37" stroke="none" stroke-width="1"/>
+<g transform="translate(165.0 538) scale(0.75)"><path d="M2 9l10-5 10 5-10 5L2 9z M6 11v5q6 5 12 0v-5 M22 9v7" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="174.0" y="574" text-anchor="middle" font-size="10" font-weight="600" fill="#D4AF37" letter-spacing="0">SIAKAD</text>
+<g transform="translate(234.5 538) scale(0.75)"><path d="M3 5h18v16H3z M7 3v4 M17 3v4 M3 10h18" stroke="#AAA9A3" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="243.5" y="574" text-anchor="middle" font-size="10" font-weight="400" fill="#AAA9A3" letter-spacing="0">Kalender</text>
+<g transform="translate(304.0 538) scale(0.75)"><path d="M3 6h8m4 0h6 M3 17h3m5 0h10 M11 3v6h4V3z M7 14v6h4v-6z" stroke="#AAA9A3" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="313.0" y="574" text-anchor="middle" font-size="10" font-weight="400" fill="#AAA9A3" letter-spacing="0">Setting</text>
+</g>
+<text x="416" y="175" text-anchor="start" font-size="13" font-weight="700" fill="#766331" letter-spacing="0">02</text>
+<text x="449" y="175" text-anchor="start" font-size="16" font-weight="700" fill="#242620" letter-spacing="0">Beranda SIAKAD</text>
+<g transform="translate(416 196)">
+<rect x="0" y="0" width="348" height="590" rx="18" fill="#121212" stroke="none" stroke-width="1"/>
+<text x="20" y="28" text-anchor="start" font-size="17" font-weight="700" fill="#ECEBE6" letter-spacing="0">SIAKAD</text>
+<text x="20" y="46" text-anchor="start" font-size="12" font-weight="400" fill="#B7B6AF" letter-spacing="0">Markaz Arabiyah</text>
+<rect x="180" y="8" width="148" height="48" rx="7" fill="#1E1E1E" stroke="#46473F" stroke-width="1"/>
+<g transform="translate(193 24) scale(0.6666666666666666)"><path d="M2 11l10-8 10 8 M5 10v11h5v-7h4v7h5V10" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="216" y="37" text-anchor="start" font-size="12" font-weight="600" fill="#ECEBE6" letter-spacing="0">Halaman umum</text>
+<path d="M1 63L347 63" stroke="#363735" fill="none"/>
+<text x="20" y="94" text-anchor="start" font-size="23" font-weight="700" fill="#ECEBE6" letter-spacing="0">Maryam</text>
+<text x="20" y="115" text-anchor="start" font-size="12" font-weight="400" fill="#B7B6AF" letter-spacing="0">Kelas A  ·  Program Reguler</text>
+<rect x="20" y="130" width="308" height="90" rx="8" fill="#20201B" stroke="none" stroke-width="1"/>
+<text x="32" y="152" text-anchor="start" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Tulungrejo, Pare</text>
+<text x="32" y="192" text-anchor="start" font-size="30" font-weight="600" fill="#ECEBE6" letter-spacing="0">11:18</text>
+<text x="132" y="192" text-anchor="start" font-size="10" font-weight="400" fill="#B7B6AF" letter-spacing="0">WIB</text>
+<path d="M166 144L166 207" stroke="#404137" fill="none"/>
+<text x="177" y="152" text-anchor="start" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Salat berikutnya</text>
+<text x="177" y="177" text-anchor="start" font-size="17" font-weight="600" fill="#D4AF37" letter-spacing="0">Zuhur  11:25</text>
+<text x="177" y="200" text-anchor="start" font-size="12" font-weight="400" fill="#B7B6AF" letter-spacing="0">7 menit lagi</text>
+<g transform="translate(304 167) scale(0.5833333333333334)"><path d="M9 6l6 6-6 6" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="20" y="256" text-anchor="start" font-size="17" font-weight="700" fill="#ECEBE6" letter-spacing="0">Fitur santri</text>
+<text x="231" y="255" text-anchor="start" font-size="12" font-weight="600" fill="#D4AF37" letter-spacing="0">Semua fitur</text>
+<g transform="translate(311 243) scale(0.5416666666666666)"><path d="M9 6l6 6-6 6" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="20" y="269" width="97" height="66" rx="7" fill="#1E1E1E" stroke="#393A37" stroke-width="1"/>
+<g transform="translate(31 278) scale(0.9166666666666666)"><path d="M4 2h11l5 5v15H4z M15 2v6h5 M8 12h8 M8 16h6" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="31" y="320" text-anchor="start" font-size="12" font-weight="600" fill="#ECEBE6" letter-spacing="0">Nilai</text>
+<rect x="125" y="269" width="97" height="66" rx="7" fill="#1E1E1E" stroke="#393A37" stroke-width="1"/>
+<g transform="translate(136 278) scale(0.9166666666666666)"><path d="M3 5h18v16H3z M7 3v4 M17 3v4 M3 10h18" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="136" y="320" text-anchor="start" font-size="12" font-weight="600" fill="#ECEBE6" letter-spacing="0">Absensi</text>
+<rect x="230" y="269" width="97" height="66" rx="7" fill="#1E1E1E" stroke="#393A37" stroke-width="1"/>
+<g transform="translate(241 278) scale(0.9166666666666666)"><path d="M2 4q6-1 10 2q5-3 10-2v15q-6-1-10 2q-5-3-10-2V4 M12 6v15" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="241" y="320" text-anchor="start" font-size="12" font-weight="600" fill="#ECEBE6" letter-spacing="0">Ujian</text>
+<rect x="20" y="343" width="97" height="66" rx="7" fill="#1E1E1E" stroke="#393A37" stroke-width="1"/>
+<g transform="translate(31 352) scale(0.9166666666666666)"><path d="M2 2h7v7H2z M15 2h7v7h-7z M2 15h7v7H2z M14 14h3v4h5v4h-4 M14 20v2 M21 13v2" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="31" y="394" text-anchor="start" font-size="12" font-weight="600" fill="#ECEBE6" letter-spacing="0">QR Saya</text>
+<rect x="125" y="343" width="97" height="66" rx="7" fill="#1E1E1E" stroke="#393A37" stroke-width="1"/>
+<g transform="translate(136 352) scale(0.9166666666666666)"><path d="M6 4h3m6 0h3v17H6V4 M9 2h6v4H9z M9 13l2 2 5-5" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="136" y="394" text-anchor="start" font-size="12" font-weight="600" fill="#ECEBE6" letter-spacing="0">Perizinan</text>
+<rect x="230" y="343" width="97" height="66" rx="7" fill="#1E1E1E" stroke="#393A37" stroke-width="1"/>
+<g transform="translate(241 352) scale(0.9166666666666666)"><path d="M4 5h16v14H4z M7 10a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M6.5 16q2.5-4 5 0 M14 10h3 M14 14h3" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="239" y="394" text-anchor="start" font-size="11.5" font-weight="600" fill="#ECEBE6" letter-spacing="0">Daftar ulang</text>
+<path d="M20 428L328 428" stroke="#363735" fill="none"/>
+<g transform="translate(21 452) scale(0.7916666666666666)"><path d="M12 2a10 10 0 1 0 .1 0 M12 6v6l4 2" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="51" y="456" text-anchor="start" font-size="14" font-weight="600" fill="#ECEBE6" letter-spacing="0">Konfirmasi kembali</text>
+<text x="51" y="477" text-anchor="start" font-size="12" font-weight="400" fill="#B7B6AF" letter-spacing="0">Tasrih keluar Pare masih aktif</text>
+<g transform="translate(309 451) scale(0.6666666666666666)"><path d="M9 6l6 6-6 6" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M1 525L347 525" stroke="#363735" fill="none"/>
+<rect x="29.5" y="525" width="28" height="2" rx="1" fill="#D4AF37" stroke="none" stroke-width="1"/>
+<g transform="translate(33.5 538) scale(0.8333333333333334)"><path d="M2 11l10-8 10 8 M5 10v11h5v-7h4v7h5V10" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="43.5" y="574" text-anchor="middle" font-size="11" font-weight="600" fill="#D4AF37" letter-spacing="0">Beranda</text>
+<g transform="translate(120.5 538) scale(0.8333333333333334)"><path d="M2 4q6-1 10 2q5-3 10-2v15q-6-1-10 2q-5-3-10-2V4 M12 6v15" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="130.5" y="574" text-anchor="middle" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Akademik</text>
+<g transform="translate(207.5 538) scale(0.8333333333333334)"><path d="M6 4h3m6 0h3v17H6V4 M9 2h6v4H9z M9 13l2 2 5-5" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="217.5" y="574" text-anchor="middle" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Layanan</text>
+<g transform="translate(294.5 538) scale(0.8333333333333334)"><path d="M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8 M4 21v-2a8 5 0 0 1 16 0v2" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="304.5" y="574" text-anchor="middle" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Akun</text>
+</g>
+<text x="792" y="175" text-anchor="start" font-size="13" font-weight="700" fill="#766331" letter-spacing="0">03</text>
+<text x="825" y="175" text-anchor="start" font-size="16" font-weight="700" fill="#242620" letter-spacing="0">Konfirmasi kembali</text>
+<g transform="translate(792 196)">
+<rect x="0" y="0" width="348" height="590" rx="18" fill="#121212" stroke="none" stroke-width="1"/>
+<g transform="translate(20 20) scale(0.7916666666666666)"><path d="M19 12H5 M11 5l-7 7 7 7" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="53" y="35" text-anchor="start" font-size="15" font-weight="600" fill="#ECEBE6" letter-spacing="0">Perizinan</text>
+<path d="M0 55L348 55" stroke="#363735" fill="none"/>
+<text x="20" y="98" text-anchor="start" font-size="28" font-weight="700" fill="#ECEBE6" letter-spacing="0">Tasrih saya</text>
+<g transform="translate(21 125) scale(0.6666666666666666)"><path d="M12 2a10 10 0 1 0 .1 0 M12 6v6l4 2" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="45" y="139" text-anchor="start" font-size="14" font-weight="600" fill="#D4AF37" letter-spacing="0">Izin aktif</text>
+<path d="M20 163L328 163" stroke="#363735" fill="none"/>
+<text x="20" y="191" text-anchor="start" font-size="12" font-weight="400" fill="#B7B6AF" letter-spacing="0">Jenis izin</text>
+<text x="20" y="215" text-anchor="start" font-size="17" font-weight="600" fill="#ECEBE6" letter-spacing="0">Keluar Pare</text>
+<text x="20" y="254" text-anchor="start" font-size="12" font-weight="400" fill="#B7B6AF" letter-spacing="0">Tanggal izin</text>
+<text x="20" y="278" text-anchor="start" font-size="17" font-weight="600" fill="#ECEBE6" letter-spacing="0">6 November 2026</text>
+<path d="M20 303L328 303" stroke="#363735" fill="none"/>
+<text x="20" y="342" text-anchor="start" font-size="18" font-weight="700" fill="#ECEBE6" letter-spacing="0">Sudah kembali ke Markaz?</text>
+<text x="20" y="370" text-anchor="start" font-size="14" font-weight="400" fill="#B7B6AF" letter-spacing="0">Ambil selfie untuk mengonfirmasi</text>
+<text x="20" y="392" text-anchor="start" font-size="14" font-weight="400" fill="#B7B6AF" letter-spacing="0">kepulangan sesuai tasrih ini.</text>
+<rect x="20" y="428" width="308" height="48" rx="7" fill="#D4AF37" stroke="none" stroke-width="1"/>
+<g transform="translate(37 441) scale(0.875)"><path d="M3 7h4l2-3h6l2 3h4v13H3z M12 9a4 4 0 1 0 0 8a4 4 0 1 0 0-8" stroke="#121212" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="67" y="458" text-anchor="start" font-size="15" font-weight="700" fill="#121212" letter-spacing="0">Ambil selfie</text>
+<path d="M1 525L347 525" stroke="#363735" fill="none"/>
+<g transform="translate(33.5 538) scale(0.8333333333333334)"><path d="M2 11l10-8 10 8 M5 10v11h5v-7h4v7h5V10" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="43.5" y="574" text-anchor="middle" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Beranda</text>
+<g transform="translate(120.5 538) scale(0.8333333333333334)"><path d="M2 4q6-1 10 2q5-3 10-2v15q-6-1-10 2q-5-3-10-2V4 M12 6v15" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="130.5" y="574" text-anchor="middle" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Akademik</text>
+<rect x="203.5" y="525" width="28" height="2" rx="1" fill="#D4AF37" stroke="none" stroke-width="1"/>
+<g transform="translate(207.5 538) scale(0.8333333333333334)"><path d="M6 4h3m6 0h3v17H6V4 M9 2h6v4H9z M9 13l2 2 5-5" stroke="#D4AF37" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="217.5" y="574" text-anchor="middle" font-size="11" font-weight="600" fill="#D4AF37" letter-spacing="0">Layanan</text>
+<g transform="translate(294.5 538) scale(0.8333333333333334)"><path d="M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8 M4 21v-2a8 5 0 0 1 16 0v2" stroke="#B7B6AF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="304.5" y="574" text-anchor="middle" font-size="11" font-weight="400" fill="#B7B6AF" letter-spacing="0">Akun</text>
+</g>
+<text x="40" y="818" text-anchor="start" font-size="12" font-weight="400" fill="#575A54" letter-spacing="0">Dokumen desain   /   Rilis pertama</text>
+<text x="1140" y="818" text-anchor="end" font-size="12" font-weight="400" fill="#575A54" letter-spacing="0">Contoh tampilan · belum diimplementasikan</text>
+</svg>

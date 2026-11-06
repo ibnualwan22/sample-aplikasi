@@ -17,7 +17,7 @@ const kTafsirArab = [
 class ApiService {
   static String get _quranBase  => AppConfig.quranApiBaseUrl;
   static String get _equranBase => AppConfig.equranApiBaseUrl;
-  static String get _sigmaBase  => AppConfig.sigmaApiBaseUrl;
+  static String get _siakadBase  => AppConfig.siakadApiBaseUrl;
 
   // Mencari ID Kota berdasarkan keyword (misal 'sleman' atau 'jepara')
   static Future<String?> getCityId(String keyword) async {
@@ -117,35 +117,11 @@ class ApiService {
     return null;
   }
 
-  // Mengambil Laporan Santri dari API SIGMA (Vercel)
-  static Future<Map<String, dynamic>?> getLaporanSigma(String nama) async {
-    try {
-      final response = await http.get(
-          Uri.parse('$_sigmaBase/mobile/laporan-santri?nama=$nama'));
-      return jsonDecode(response.body);
-    } catch (e) {
-      print('Error getLaporanSigma: $e');
-    }
-    return null;
-  }
-
-  // Mengambil Hasil Tes dari API SIGMA (Vercel)
-  static Future<Map<String, dynamic>?> getHasilTes() async {
-    try {
-      final response = await http.get(
-          Uri.parse('$_sigmaBase/mobile/hasil-tes'));
-      return jsonDecode(response.body);
-    } catch (e) {
-      print('Error getHasilTes: $e');
-    }
-    return null;
-  }
-
-  // Mengambil daftar postingan Instagram dari API SIGMA (Vercel)
+  // Mengambil daftar postingan Instagram dari API SIAKAD (Vercel)
   static Future<Map<String, dynamic>?> getInstagramPosts() async {
     try {
       final response = await http.get(
-          Uri.parse('$_sigmaBase/instagram/feed'));
+          Uri.parse('$_siakadBase/instagram/feed'));
       return jsonDecode(response.body);
     } catch (e) {
       print('Error getInstagramPosts: $e');
@@ -153,10 +129,10 @@ class ApiService {
     return null;
   }
 
-  // Mengambil agenda rutinan dari API SIGMA (Vercel)
+  // Mengambil agenda rutinan dari API SIAKAD (Vercel)
   static Future<Map<String, dynamic>?> getAgenda({int? month, int? year}) async {
     try {
-      String url = '$_sigmaBase/mobile/agenda';
+      String url = '$_siakadBase/mobile/agenda';
       List<String> queryParams = [];
       if (month != null) queryParams.add('month=$month');
       if (year != null) queryParams.add('year=$year');

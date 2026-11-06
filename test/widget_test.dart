@@ -1,30 +1,87 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sample_aplikasi/screens/siakad_portal_screen.dart';
+import 'package:sample_aplikasi/siakad/api.dart';
 
-import 'package:sample_aplikasi/main.dart';
+class DemoApi extends SantriApi {
+  DemoApi({this.exists = false})
+      : super(origin: Uri.parse('https://example.invalid'));
+  bool exists;
+  final paths = <String>[];
+  String? submitted;
+  @override
+  Future<bool> restore() async => exists;
+  @override
+  Future<dynamic> call(String path, {String method = 'GET', Json? body}) async {
+    paths.add(path);
+    if (path.endsWith('/auth/login')) {
+      submitted = body?['nis'];
+      if (submitted == 'salah') throw const PortalError('NIS tidak ditemukan');
+      session = 'test';
+      exists = true;
+      return {};
+    }
+    if (path == '/api/santri/me')
+      return {
+        'santri': {'id': '001', 'nama': 'Santri uji', 'isAktif': true},
+        'riwayat': [],
+        'menu': {'isKetuaKelas': true}
+      };
+    if (path == '/api/mobile/hasil-tes')
+      return {'active_dufah': 'Dufah uji', 'data': []};
+    return {};
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets(
+      'Login mempertahankan nol awal, menawarkan menu sesuai peran dan tombol mode umum',
+      (t) async {
+    final api = DemoApi();
+    bool public = false;
+    await t.pumpWidget(MaterialApp(
+        home: SiakadPortalScreen(
+            api: api,
+            onExit: () {
+              public = true;
+            })));
+    await t.pumpAndSettle();
+    expect(api.paths, isEmpty);
+    await t.enterText(find.byType(TextField), '001');
+    await t.tap(find.text('Masuk'));
+    await t.pumpAndSettle();
+    expect(api.submitted, '001');
+    expect(find.text('Beranda'), findsOneWidget);
+    expect(find.text('QR Saya'), findsOneWidget);
+    await t.tap(find.text('Semua fitur'));
+    await t.pumpAndSettle();
+    expect(find.text('Berita Acara'), findsOneWidget);
+    expect(find.text('Eksekusi Iqob'), findsNothing);
+    await t.tap(find.text('Halaman umum'));
+    expect(public, isTrue);
+    expect(api.exists, isTrue);
+  });
+  testWidgets('Pintasan hasil tes melanjutkan ke data akun setelah login',
+      (t) async {
+    final api = DemoApi();
+    await t.pumpWidget(
+        MaterialApp(home: SiakadPortalScreen(api: api, resultRequest: 1)));
+    await t.pumpAndSettle();
+    expect(api.paths, isEmpty);
+    await t.enterText(find.byType(TextField), '001');
+    await t.tap(find.text('Masuk'));
+    await t.pumpAndSettle();
+    expect(find.text('Dufah uji'), findsOneWidget);
+    expect(api.paths.last, '/api/mobile/hasil-tes');
+  });
+  testWidgets('NIS salah tetap di login', (t) async {
+    final api = DemoApi();
+    await t.pumpWidget(MaterialApp(home: SiakadPortalScreen(api: api)));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextField), 'salah');
+    await t.tap(find.text('Masuk'));
+    await t.pumpAndSettle();
+    expect(find.text('NIS tidak ditemukan'), findsOneWidget);
+    expect(find.text('QR Saya'), findsNothing);
   });
 }

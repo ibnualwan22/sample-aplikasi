@@ -482,21 +482,11 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
 
             // ── Satu baris ayat ─────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 14, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 14, 4, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ⋮ Kiri
-                  IconButton(
-                    icon: const Icon(Icons.more_vert,
-                        color: _kSec, size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                        minWidth: 36, minHeight: 36),
-                    onPressed: () => _showOptions(ayah),
-                  ),
-
-                  // Konten kanan
+                  // Konten kanan (berada di kanan karena RTL)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -539,6 +529,16 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
                         const SizedBox(height: 14),
                       ],
                     ),
+                  ),
+                  
+                  // ⋮ Kiri (berada di kiri layar karena elemen kedua dalam RTL)
+                  IconButton(
+                    icon: const Icon(Icons.more_vert,
+                        color: _kSec, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                        minWidth: 36, minHeight: 36),
+                    onPressed: () => _showOptions(ayah),
                   ),
                 ],
               ),

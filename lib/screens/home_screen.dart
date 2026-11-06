@@ -1,3 +1,4 @@
+import '../siakad/prayer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -12,11 +13,13 @@ import '../widgets/coming_soon_dialog.dart';
 import '../services/api_service.dart';
 import 'denah_sakan_screen.dart';
 import 'kiblat_screen.dart';
-import 'hasil_tes_screen.dart';
+import 'siakad_portal_screen.dart';
 import 'tafsir_screen.dart';
+import 'quran_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'instagram_grid_screen.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 // ============================================================
 // WARNA TEMA — Hitam & Emas
@@ -32,7 +35,8 @@ const kTextPri   = Colors.white;
 const kTextSec   = Color(0xFFAAAAAA);
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onOpenSiakad});
+  final VoidCallback? onOpenSiakad;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -44,17 +48,17 @@ class _HomeScreenState extends State<HomeScreen> {
   String _nextPrayerName = 'MEMUAT...';
   String _nextPrayerTime = '--:--';
   String _countdownStr   = '--:--:--';
+  String _currentTime    = '';
   bool   _isLoading      = true;
-
-  double _lat = -6.5333;
-  double _lng = 110.7000;
+  double _lat = -7.7613;
+  double _lng = 112.1818;
 
   DateTime? _nextPrayerDt;
   Timer?    _timer;
 
   bool _isLoadingInstagram = true;
   List<dynamic> _instagramPosts = [];
-  late final WebViewController _elfsightWebViewController;
+  WebViewController? _elfsightWebViewController;
 
   final _shorebirdUpdater = ShorebirdUpdater();
 
@@ -62,50 +66,59 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _currentDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
+    _updateClock();
     _determinePosition();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateCountdown());
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _updateCountdown();
+      _updateClock();
+      prayerInfo.value = (
+        clock: _currentTime, location: _lokasiKota, prayer: _nextPrayerName,
+        time: _nextPrayerTime, countdown: _countdownStr, schedule: _openPrayerSchedule,
+      );
+    });
     _fetchInstagramPosts();
     _checkForUpdates();
 
-    _elfsightWebViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.transparent)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onNavigationRequest: (NavigationRequest request) async {
-            final url = request.url;
-            
-            // Biarkan skrip internal WebView berjalan dengan aman
-            if (url.startsWith('data:') || url.contains('elfsightcdn.com')) {
-              return NavigationDecision.navigate;
-            }
-
-            // Cegat semua tautan ke luar, termasuk intent khusus Android (Instagram)
-            Uri uri;
-            if (url.startsWith('intent://')) {
-              // Konversi Android intent URL kembali ke link web standar
-              // Contoh: intent://instagram.com/_u/foo... -> https://instagram.com/_u/foo...
-              final cleanStr = url.replaceFirst('intent://', 'https://').split('#Intent').first;
-              uri = Uri.parse(cleanStr);
-            } else {
-              uri = Uri.parse(url);
-            }
-
-            try {
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              } else if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat membuka aplikasi Instagram')));
+    if (!kIsWeb) {
+      _elfsightWebViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(Colors.transparent)
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onNavigationRequest: (NavigationRequest request) async {
+              final url = request.url;
+              
+              // Biarkan skrip internal WebView berjalan dengan aman
+              if (url.startsWith('data:') || url.contains('elfsightcdn.com')) {
+                return NavigationDecision.navigate;
               }
-            } catch (e) {
-              debugPrint('NavigationError: $e');
-            }
-            
-            return NavigationDecision.prevent; // Tolak render ke WebView karena kita sudah melemparnya ke Aplikasi!
-          },
-        ),
-      )
-      ..loadHtmlString('''
+
+              // Cegat semua tautan ke luar, termasuk intent khusus Android (Instagram)
+              Uri uri;
+              if (url.startsWith('intent://')) {
+                // Konversi Android intent URL kembali ke link web standar
+                // Contoh: intent://instagram.com/_u/foo... -> https://instagram.com/_u/foo...
+                final cleanStr = url.replaceFirst('intent://', 'https://').split('#Intent').first;
+                uri = Uri.parse(cleanStr);
+              } else {
+                uri = Uri.parse(url);
+              }
+
+              try {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat membuka aplikasi Instagram')));
+                }
+              } catch (e) {
+                debugPrint('NavigationError: $e');
+              }
+              
+              return NavigationDecision.prevent; // Tolak render ke WebView karena kita sudah melemparnya ke Aplikasi!
+            },
+          ),
+        )
+        ..loadHtmlString('''
 <!DOCTYPE html>
 <html>
 <head>
@@ -117,7 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
   <div class="elfsight-app-6f1e26c4-1501-4e35-9fc8-c7d3ab6c84ad" data-elfsight-app-lazy></div>
 </body>
 </html>
-      ''');
+        ''');
+    }
   }
 
   Future<void> _checkForUpdates() async {
@@ -148,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: const [
             Icon(Icons.system_update_alt, color: kGold),
             SizedBox(width: 10),
-            Text('Pembaruan SIGMA', style: TextStyle(color: kGold, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Pembaruan SIAKAD Markaz Arabiyah', style: TextStyle(color: kGold, fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -228,6 +242,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _openPrayerSchedule() { if (mounted) _showJadwalDialog(context); }
+
+  void _updateClock() {
+    final str = DateFormat('HH:mm').format(DateTime.now());
+    if (mounted && _currentTime != str) {
+      setState(() => _currentTime = str);
+    }
+  }
+
   @override
   void dispose() { _timer?.cancel(); super.dispose(); }
 
@@ -235,14 +258,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _determinePosition() async {
     bool svc = await Geolocator.isLocationServiceEnabled();
     if (!svc) {
-      if (mounted) setState(() => _lokasiKota = 'Bangsri, Jepara (GPS Off)');
+      if (mounted) setState(() => _lokasiKota = 'Tulungrejo, Pare (GPS Off)');
       _calcPrayer(); return;
     }
     LocationPermission perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
     if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
       final lbl = perm == LocationPermission.deniedForever ? 'Diblokir' : 'Ditahan';
-      if (mounted) setState(() => _lokasiKota = 'Bangsri, Jepara ($lbl)');
+      if (mounted) setState(() => _lokasiKota = 'Tulungrejo, Pare ($lbl)');
       _calcPrayer(); return;
     }
     try {
@@ -400,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ──────────────────────────────────────────────────────────
-  // MOSQUE HEADER
+  // HEADER
   // ──────────────────────────────────────────────────────────
   Widget _buildMosqueHeader() {
     return Stack(
@@ -408,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Background gradien emas gelap
         Container(
           width: double.infinity,
-          height: 380,
+          height: 330,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xFF2C1F00), Color(0xFF1A1200), Color(0xFF0A0A0A)],
@@ -420,18 +443,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         // Pola geometri arabesque (emas redup)
         Positioned.fill(child: CustomPaint(painter: _GeometricPatternPainter())),
-        // Silhouette masjid di bawah
-        Positioned(
-          bottom: 0, left: 0, right: 0,
-          child: SizedBox(height: 140, child: CustomPaint(painter: _MosqueSilhouettePainter())),
-        ),
-        // Garis aksen emas
-        Positioned(bottom: 138, left: 0, right: 0,
-          child: Container(height: 1, color: kGold.withOpacity(0.35))),
         // Konten teks
         SafeArea(
           child: SizedBox(
-            height: 380 - MediaQuery.of(context).padding.top,
+            height: 330 - MediaQuery.of(context).padding.top,
             child: Column(
               children: [
                 Align(
@@ -444,6 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 4),
                 const Text('Markaz Arabiyah',
                   style: TextStyle(
                     color: kGoldLight, fontSize: 27, fontWeight: FontWeight.bold, letterSpacing: 1.5,
@@ -464,21 +480,37 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ]),
                 ),
+                const SizedBox(height: 22),
+                
+                // KOTAK SHOLAT (CARD)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.55),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: kGold.withOpacity(0.4), width: 1.5),
+                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        _isLoading ? 'MEMUAT...' : '$_nextPrayerName  $_nextPrayerTime WIB',
+                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _isLoading ? '--:--:--' : _countdownStr,
+                        style: const TextStyle(color: kGoldLight, fontSize: 20, letterSpacing: 3, fontWeight: FontWeight.w300),
+                      ),
+                    ],
+                  ),
+                ),
+                
                 const SizedBox(height: 20),
-                Text(
-                  _isLoading ? 'MEMUAT...' : '$_nextPrayerName  $_nextPrayerTime WIB',
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _isLoading ? '--:--:--' : _countdownStr,
-                  style: const TextStyle(color: kGoldLight, fontSize: 20, letterSpacing: 3, fontWeight: FontWeight.w300),
-                ),
-                const SizedBox(height: 10),
-                Text('$_currentDate / $_hijriDate',
+               Text('$_currentDate / $_hijriDate' ,
                   style: const TextStyle(color: Colors.white60, fontSize: 12)),
                 const Spacer(),
-                const SizedBox(height: 140), // beri ruang untuk silhouette
               ],
             ),
           ),
@@ -515,9 +547,16 @@ class _HomeScreenState extends State<HomeScreen> {
             final label = item['label'] as String;
             if (isJadwal) _showJadwalDialog(ctx);
             else if (isDenah) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const DenahSakanScreen()));
-            else if (isHasilTes) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const HasilTesScreen()));
+            else if (isHasilTes) {
+              if (widget.onOpenSiakad != null) {
+                widget.onOpenSiakad!();
+              } else {
+                Navigator.push(ctx, MaterialPageRoute(builder: (_) => const SiakadPortalScreen(initialFeature:"Hasil Tes")));
+              }
+            }
             else if (isKiblat) Navigator.push(ctx, MaterialPageRoute(builder: (_) => const KiblatScreen()));
             else if (label == 'Tafsir') Navigator.push(ctx, MaterialPageRoute(builder: (_) => const TafsirScreen()));
+            else if (label == 'Al-Quran') Navigator.push(ctx, MaterialPageRoute(builder: (_) => const QuranScreen()));
             else showComingSoonDialog(ctx, label);
           },
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -626,6 +665,26 @@ class _HomeScreenState extends State<HomeScreen> {
   // INSTAGRAM LIST
   // ──────────────────────────────────────────────────────────
   Widget _buildInstagramList(BuildContext ctx) {
+    if (kIsWeb) {
+      return Container(
+        height: 480,
+        decoration: BoxDecoration(
+          color: kBgCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kGold.withOpacity(0.3)),
+        ),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.web, color: kGoldDim, size: 48),
+            SizedBox(height: 12),
+            Text('Widget Instagram tidak ditampilkan pada Versi Web/\nBrowser untuk alasan keamanan.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+    
     return Container(
       height: 480, // Memberikan batasan tinggi agar WebView bisa memuat konten embed
       decoration: BoxDecoration(
@@ -634,7 +693,7 @@ class _HomeScreenState extends State<HomeScreen> {
         border: Border.all(color: kGold.withOpacity(0.3)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: WebViewWidget(controller: _elfsightWebViewController),
+      child: WebViewWidget(controller: _elfsightWebViewController!),
     );
   }
 }
@@ -682,119 +741,7 @@ class _GeometricPatternPainter extends CustomPainter {
   bool shouldRepaint(_) => false;
 }
 
-/// Silhouette masjid: dua menara di kiri-kanan + kubah besar di tengah
-class _MosqueSilhouettePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bg = Paint()
-      ..color = const Color(0xFF0A0A0A)
-      ..style = PaintingStyle.fill;
-    final outline = Paint()
-      ..color = const Color(0xFFD4AF37).withOpacity(0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
 
-    final W = size.width;
-    final H = size.height;
-    final path = _buildMosquePath(W, H);
-
-    canvas.drawPath(path, bg);
-    canvas.drawPath(path, outline);
-
-    // Hiasan puncak
-    _drawFinial(canvas, Offset(W * 0.50, _domeTopY(H)),  7.0);
-    _drawFinial(canvas, Offset(W * 0.085, _minaretTopY(H)), 4.0);
-    _drawFinial(canvas, Offset(W * 0.915, _minaretTopY(H)), 4.0);
-  }
-
-  double _domeTopY(double H) => H * (-0.18);   // kubah menjulur ke atas canvas
-  double _minaretTopY(double H) => H * 0.025;   // puncak menara
-
-  Path _buildMosquePath(double W, double H) {
-    final path = Path();
-    path.moveTo(0, H);
-
-    // ── MENARA KIRI ────────────────────────────────────────
-    const mW = 0.065; // setengah lebar menara (fraksi W)
-    const mH = 0.92;  // tinggi menara total (fraksi H)
-    double lx = W * 0.085;
-
-    path.lineTo(0, H * 0.68);
-    path.lineTo(lx - W * mW * 1.5, H * 0.68);
-    path.lineTo(lx - W * mW * 1.5, H * 0.58);
-    path.lineTo(lx - W * mW,       H * 0.58);
-    path.lineTo(lx - W * mW,       H * (1 - mH + 0.28));
-    // Jenjang / teras menara
-    path.lineTo(lx - W * mW * 1.3, H * (1 - mH + 0.28));
-    path.lineTo(lx - W * mW * 1.3, H * (1 - mH + 0.20));
-    path.lineTo(lx - W * mW * 0.7, H * (1 - mH + 0.20));
-    // Badan ramping menara
-    path.lineTo(lx - W * mW * 0.5, H * (1 - mH + 0.10));
-    // Puncak runcing
-    path.lineTo(lx,                 H * (1 - mH));
-    path.lineTo(lx + W * mW * 0.5, H * (1 - mH + 0.10));
-    path.lineTo(lx + W * mW * 0.7, H * (1 - mH + 0.20));
-    path.lineTo(lx + W * mW * 1.3, H * (1 - mH + 0.20));
-    path.lineTo(lx + W * mW * 1.3, H * (1 - mH + 0.28));
-    path.lineTo(lx + W * mW,       H * (1 - mH + 0.28));
-    path.lineTo(lx + W * mW,       H * 0.58);
-    path.lineTo(lx + W * mW * 1.5, H * 0.58);
-    path.lineTo(lx + W * mW * 1.5, H * 0.68);
-
-    // ── LENGKUNGAN KIRI (busur kecil) ──────────────────────
-    path.lineTo(W * 0.30, H * 0.68);
-    path.quadraticBezierTo(W * 0.33, H * 0.42, W * 0.38, H * 0.65);
-
-    // ── KUBAH UTAMA ────────────────────────────────────────
-    path.lineTo(W * 0.41, H * 0.52);
-    // Busur kubah (kubik Bezier)
-    path.cubicTo(
-      W * 0.42, H * (-0.20),
-      W * 0.58, H * (-0.20),
-      W * 0.59, H * 0.52,
-    );
-    path.lineTo(W * 0.62, H * 0.65);
-
-    // ── LENGKUNGAN KANAN ───────────────────────────────────
-    path.quadraticBezierTo(W * 0.67, H * 0.42, W * 0.70, H * 0.68);
-
-    // ── MENARA KANAN ──────────────────────────────────────
-    double rx = W * 0.915;
-    path.lineTo(rx - W * mW * 1.5, H * 0.68);
-    path.lineTo(rx - W * mW * 1.5, H * 0.58);
-    path.lineTo(rx - W * mW,       H * 0.58);
-    path.lineTo(rx - W * mW,       H * (1 - mH + 0.28));
-    path.lineTo(rx - W * mW * 1.3, H * (1 - mH + 0.28));
-    path.lineTo(rx - W * mW * 1.3, H * (1 - mH + 0.20));
-    path.lineTo(rx - W * mW * 0.7, H * (1 - mH + 0.20));
-    path.lineTo(rx - W * mW * 0.5, H * (1 - mH + 0.10));
-    path.lineTo(rx,                 H * (1 - mH));
-    path.lineTo(rx + W * mW * 0.5, H * (1 - mH + 0.10));
-    path.lineTo(rx + W * mW * 0.7, H * (1 - mH + 0.20));
-    path.lineTo(rx + W * mW * 1.3, H * (1 - mH + 0.20));
-    path.lineTo(rx + W * mW * 1.3, H * (1 - mH + 0.28));
-    path.lineTo(rx + W * mW,       H * (1 - mH + 0.28));
-    path.lineTo(rx + W * mW,       H * 0.58);
-    path.lineTo(rx + W * mW * 1.5, H * 0.58);
-    path.lineTo(rx + W * mW * 1.5, H * 0.68);
-
-    path.lineTo(W, H * 0.68);
-    path.lineTo(W, H);
-    path.close();
-    return path;
-  }
-
-  void _drawFinial(Canvas canvas, Offset c, double r) {
-    // Bola emas puncak
-    canvas.drawCircle(c, r, Paint()..color = const Color(0xFFEDD56A));
-    canvas.drawCircle(c, r * 0.5, Paint()..color = const Color(0xFF0A0A0A));
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
-}
-
-// ═══════════════════════════════════════════════════════════════
 // LOCATION SEARCH DIALOG
 // ═══════════════════════════════════════════════════════════════
 class LocationSearchDialog extends StatefulWidget {

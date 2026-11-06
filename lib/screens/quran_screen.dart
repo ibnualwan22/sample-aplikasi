@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/quran_image_cache_manager.dart';
 import '../data/quran_pages.dart';
 import 'surah_detail_screen.dart';
 import 'mushaf_viewer_screen.dart';
@@ -79,6 +80,19 @@ class _QuranScreenState extends State<QuranScreen>
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download, color: _kGoldL),
+            tooltip: 'Unduh Halaman Mushaf',
+            onPressed: () {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const _DownloadMushafDialog(),
+              );
+            },
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(96),
           child: Column(children: [
@@ -329,6 +343,84 @@ class _QuranScreenState extends State<QuranScreen>
           ]),
         ),
       ),
+    );
+  }
+}
+
+class _DownloadMushafDialog extends StatefulWidget {
+  const _DownloadMushafDialog();
+  @override
+  State<_DownloadMushafDialog> createState() => _DownloadMushafDialogState();
+}
+
+class _DownloadMushafDialogState extends State<_DownloadMushafDialog> {
+  int _progress = 0;
+  bool _isDownloading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDownload();
+  }
+
+  Future<void> _startDownload() async {
+    try {
+      final cacheManager = QuranImageCacheManager.instance;
+      for (int i = 1; i <= kTotalMushafPages; i++) {
+        if (!mounted) return;
+        final url = mushafPageUrl(i);
+        final file = await cacheManager.getFileFromCache(url);
+        if (file == null) {
+          await cacheManager.downloadFile(url);
+        }
+        setState(() => _progress = i);
+      }
+      if (mounted) setState(() => _isDownloading = false);
+    } catch (_) {
+      if (mounted) setState(() { _isDownloading = false; _hasError = true; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = _progress / kTotalMushafPages;
+    return AlertDialog(
+      backgroundColor: _kCard2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Unduh Mushaf', style: TextStyle(color: _kGoldL)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_isDownloading) ...[
+            const Text('Mengunduh halaman untuk akses offline...', style: TextStyle(color: Colors.white, fontSize: 13)),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(value: pct, color: _kGold, backgroundColor: _kDiv),
+            const SizedBox(height: 8),
+            Text('$_progress / $kTotalMushafPages halaman', style: const TextStyle(color: _kSec, fontSize: 12)),
+          ] else if (_hasError) ...[
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            const Text('Gagal mengunduh. Periksa koneksi internet Anda.', style: TextStyle(color: Colors.white, fontSize: 13), textAlign: TextAlign.center),
+          ] else ...[
+            const Icon(Icons.check_circle_outline, color: _kGold, size: 48),
+            const SizedBox(height: 16),
+            const Text('Mushaf berhasil diunduh dan siap dibaca offline!', style: TextStyle(color: Colors.white, fontSize: 13), textAlign: TextAlign.center),
+          ]
+        ],
+      ),
+      actions: [
+        if (!_isDownloading)
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup', style: TextStyle(color: _kGold)),
+          )
+        else
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal', style: TextStyle(color: _kSec)),
+          ),
+      ],
     );
   }
 }

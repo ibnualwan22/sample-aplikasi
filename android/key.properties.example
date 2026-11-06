@@ -1,0 +1,6 @@
+# Untuk pembaruan aplikasi, gunakan ID dan upload key dari listing Play yang sama.
+applicationId=site.markazarabiyah.siakad
+storeFile=/lokasi/privat/markaz-upload.jks
+keyAlias=upload
+keyPassword=
+storePassword=

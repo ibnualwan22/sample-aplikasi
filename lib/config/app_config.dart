@@ -1,4 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'siakad_portal.dart';
 
 /// Satu pintu akses untuk semua environment variables.
 /// Gunakan class ini di seluruh aplikasi — jangan hardcode URL/key.
@@ -16,8 +17,12 @@ class AppConfig {
   static String get equranApiBaseUrl =>
       dotenv.env['EQURAN_API_BASE_URL'] ?? 'https://equran.id/api/v2';
 
-  // ── API Sistem Akademik SIGMA ─────────────────────────────────
-  static String get sigmaApiBaseUrl =>
+  // ── API Sistem Akademik SIAKAD ─────────────────────────────────
+  static String get siakadPortalUrl =>
+      dotenv.env['SIAKAD_PORTAL_URL'] ?? SiakadPortal.defaultBaseUrl;
+
+  static String get siakadApiBaseUrl =>
+      dotenv.env['SIAKAD_API_BASE_URL'] ??
       dotenv.env['SIGMA_API_BASE_URL'] ??
       'https://sistem-akademik-markaz.vercel.app/api';
 }
