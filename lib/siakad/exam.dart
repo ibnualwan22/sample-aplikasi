@@ -1,3 +1,5 @@
+import '../widgets/markaz_components.dart';
+import '../theme/markaz_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -218,7 +220,9 @@ class _Exam extends State<ExamPage> with WidgetsBindingObserver {
     final ok = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
-                title: const Text('Kirim ujian?'),
+                scrollable: true,
+                title: const MarkazDialogTitle('Kirim ujian?',
+                    icon: Icons.task_alt_rounded),
                 content: Text(
                     'Periksa jawaban untuk ${qs.length} soal. Setelah dikirim, jawaban tidak dapat diubah.'),
                 actions: [
@@ -240,7 +244,13 @@ class _Exam extends State<ExamPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  Widget rich(dynamic v) => Html(data: v?.toString() ?? '');
+  Widget rich(dynamic v) => Html(data: v?.toString() ?? '', style: {
+        'body': Style(
+            color: MarkazColors.ink,
+            fontFamily: 'Roboto',
+            fontFamilyFallback: ['Amiri'],
+            fontSize: FontSize(16))
+      });
   List<Widget> controls(Json q) {
     final a = obj(answers[id(q)]),
         dt = obj(q['dataTambahan']),
@@ -274,24 +284,25 @@ class _Exam extends State<ExamPage> with WidgetsBindingObserver {
     if (opts.isNotEmpty)
       return [
         for (final o in opts)
-          CheckboxListTile(
-              value: type == 'PG_MULTI'
-                  ? (j['selectedIds'] ?? []).contains(o['id'])
-                  : a[widget.tauzi ? 'jawabanId' : 'opsiId'] == o['id'],
-              title: rich(o['teks']),
-              subtitle: o['gambarUrl'] == null
-                  ? null
-                  : Image.network(
-                      widget.api.origin.resolve(o['gambarUrl']).toString()),
-              onChanged: (on) {
-                if (type == 'PG_MULTI') {
-                  final ids = Set.of(j['selectedIds'] as List? ?? []);
-                  on == true ? ids.add(o['id']) : ids.remove(o['id']);
-                  save({'selectedIds': ids.toList()});
-                } else {
-                  edit(q, {widget.tauzi ? 'jawabanId' : 'opsiId': o['id']});
-                }
-              })
+          Card(
+              child: CheckboxListTile(
+                  value: type == 'PG_MULTI'
+                      ? (j['selectedIds'] ?? []).contains(o['id'])
+                      : a[widget.tauzi ? 'jawabanId' : 'opsiId'] == o['id'],
+                  title: rich(o['teks']),
+                  subtitle: o['gambarUrl'] == null
+                      ? null
+                      : Image.network(
+                          widget.api.origin.resolve(o['gambarUrl']).toString()),
+                  onChanged: (on) {
+                    if (type == 'PG_MULTI') {
+                      final ids = Set.of(j['selectedIds'] as List? ?? []);
+                      on == true ? ids.add(o['id']) : ids.remove(o['id']);
+                      save({'selectedIds': ids.toList()});
+                    } else {
+                      edit(q, {widget.tauzi ? 'jawabanId' : 'opsiId': o['id']});
+                    }
+                  }))
       ];
     if (type == 'MENJODOHKAN' || type == 'DRAG_KATEGORI') {
       final match = type == 'MENJODOHKAN',
@@ -472,7 +483,13 @@ class _Exam extends State<ExamPage> with WidgetsBindingObserver {
                 child: Text(problem ??
                     (q == null ? 'Belum ada soal.' : 'Memuat jawaban…')))
             : ListView(padding: const EdgeInsets.all(16), children: [
-                Text('Soal ${index + 1} dari ${qs.length}'),
+                Text('Soal ${index + 1} dari ${qs.length}',
+                    style: const TextStyle(
+                        color: MarkazColors.muted,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(value: (index + 1) / qs.length),
+                const SizedBox(height: 16),
                 if (q['perintah'] != null) rich(q['perintah']),
                 rich(q['pertanyaan']),
                 if (q['gambarUrl'] != null)

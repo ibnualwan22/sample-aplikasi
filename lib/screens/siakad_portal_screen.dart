@@ -1,3 +1,5 @@
+import '../widgets/markaz_components.dart';
+import '../theme/markaz_theme.dart';
 import 'package:flutter/material.dart';
 import '../siakad/api.dart';
 import '../siakad/catalog.dart';
@@ -155,31 +157,10 @@ class _Portal extends State<SiakadPortalScreen> {
                 ? (r['isJasus'] == true || r['isLajnah'] == true)
                 : r[f.role] == true);
       }).toList();
-  Widget cards(List<Feature> items) => LayoutBuilder(builder: (c, box) {
-        final scale = MediaQuery.textScalerOf(c).scale(14) / 14;
-        final n = (box.maxWidth / (95 * scale)).floor().clamp(1, 4);
-        return Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final f in items)
-            SizedBox(
-                width: (box.maxWidth - (n - 1) * 8) / n,
-                child: Material(
-                    color: const Color(0xff202020),
-                    borderRadius: BorderRadius.circular(9),
-                    child: InkWell(
-                        onTap: () => open(f),
-                        borderRadius: BorderRadius.circular(9),
-                        child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(f.icon,
-                                      color: Theme.of(c).colorScheme.primary),
-                                  const SizedBox(height: 9),
-                                  Text(f.title)
-                                ])))))
-        ]);
-      });
+  Widget cards(List<Feature> items) => FeatureGrid(children: [
+        for (final f in items)
+          FeatureCard(label: f.title, icon: f.icon, onTap: () => open(f)),
+      ]);
   @override
   Widget build(BuildContext context) {
     if (!widget.isActive) return const SizedBox.shrink();
@@ -199,22 +180,29 @@ class _Portal extends State<SiakadPortalScreen> {
                     ? IconButton(
                         icon: const Icon(Icons.arrow_back), onPressed: back)
                     : null,
-                title: Text(detail ?? 'SIAKAD Markaz Arabiyah',
+                title: Text(detail ?? 'SIAKAD',
                     maxLines: 2, style: const TextStyle(fontSize: 17)),
                 actions: [
                   if (signed)
-                    TextButton.icon(
-                        onPressed: exit,
-                        icon: const Icon(Icons.home_outlined, size: 18),
-                        label: const Text('Halaman umum'))
+                    if (MediaQuery.sizeOf(context).width /
+                            MediaQuery.textScalerOf(context).scale(1) <
+                        280)
+                      IconButton(
+                          tooltip: 'Halaman umum',
+                          onPressed: exit,
+                          icon: const Icon(Icons.home_outlined))
+                    else
+                      TextButton.icon(
+                          onPressed: exit,
+                          icon: const Icon(Icons.home_outlined, size: 18),
+                          label: const Text('Halaman umum'))
                 ]),
             body: SafeArea(
                 child: !signed
                     ? ListView(padding: const EdgeInsets.all(24), children: [
-                        const SizedBox(height: 48),
                         const Align(
                             alignment: Alignment.centerLeft,
-                            child: Icon(Icons.school_outlined, size: 40)),
+                            child: MarkazMascot(size: 120)),
                         const SizedBox(height: 20),
                         Text('Masuk sebagai santri',
                             style: Theme.of(context).textTheme.headlineSmall),
@@ -225,11 +213,18 @@ class _Portal extends State<SiakadPortalScreen> {
                         TextField(
                             controller: nis,
                             enabled: !busy,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.done,
                             decoration: const InputDecoration(
                                 labelText: 'Nomor Induk Santri',
-                                border: OutlineInputBorder()),
+                                prefixIcon: Icon(Icons.badge_outlined)),
                             onSubmitted: (_) => login()),
-                        if (error != null) Text(error!),
+                        if (error != null)
+                          Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(error!,
+                                  style: const TextStyle(
+                                      color: MarkazColors.danger))),
                         const SizedBox(height: 16),
                         FilledButton(
                             onPressed: busy
@@ -267,20 +262,26 @@ class _Portal extends State<SiakadPortalScreen> {
                             : ListView(
                                 padding: const EdgeInsets.all(18),
                                 children: [
-                                    if (error != null) Text(error!),
+                                    if (error != null)
+                                      Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 12),
+                                          child: Text(error!,
+                                              style: const TextStyle(
+                                                  color: MarkazColors.danger))),
                                     if (tab == 0 && detail == null) ...[
-                                      Text(val(user['nama']),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .headlineSmall),
+                                      WelcomePanel(name: val(user['nama'])),
+                                      const SizedBox(height: 12),
                                       if (history.isNotEmpty)
                                         Text(
                                             "${val(history.first['kelasNama'])} · ${val(history.first['programNama'])}"),
                                       const SizedBox(height: 16),
                                       const PrayerPanel(),
-                                      Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
+                                      Wrap(
+                                          alignment: WrapAlignment.spaceBetween,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
+                                          spacing: 16,
                                           children: [
                                             const Text('Fitur santri'),
                                             TextButton(
@@ -329,23 +330,17 @@ class _Portal extends State<SiakadPortalScreen> {
                                   ])),
             bottomNavigationBar: !signed
                 ? null
-                : BottomNavigationBar(
-                    currentIndex: tab,
-                    onTap: (v) => setState(() {
+                : MarkazNavigation(
+                    index: tab,
+                    onSelect: (v) => setState(() {
                           tab = v;
                           detail = null;
                         }),
                     items: const [
-                        BottomNavigationBarItem(
-                            icon: Icon(Icons.home_outlined), label: 'Beranda'),
-                        BottomNavigationBarItem(
-                            icon: Icon(Icons.menu_book_outlined),
-                            label: 'Akademik'),
-                        BottomNavigationBarItem(
-                            icon: Icon(Icons.assignment_outlined),
-                            label: 'Layanan'),
-                        BottomNavigationBarItem(
-                            icon: Icon(Icons.person_outline), label: 'Akun')
+                        (Icons.home_rounded, 'Beranda'),
+                        (Icons.menu_book_rounded, 'Akademik'),
+                        (Icons.assignment_rounded, 'Layanan'),
+                        (Icons.person_rounded, 'Akun'),
                       ])));
   }
 }

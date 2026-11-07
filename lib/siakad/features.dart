@@ -1,3 +1,6 @@
+import '../widgets/markaz_components.dart';
+import '../theme/markaz_theme.dart';
+import 'service_forms.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -36,6 +39,7 @@ class FeaturePage extends StatefulWidget {
 
 class _Page extends State<FeaturePage> {
   List<LatLng> route = [];
+  void updateRoute(List<LatLng> points) => setState(() => route = points);
   final map = MapController();
   dynamic data;
   Json extra = {};
@@ -214,72 +218,125 @@ class _Page extends State<FeaturePage> {
   Future<bool> confirm(String title, String msg) async =>
       await showDialog<bool>(
           context: context,
-          builder: (c) =>
-              AlertDialog(title: Text(title), content: Text(msg), actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(c, false),
-                    child: const Text('Batal')),
-                FilledButton(
-                    onPressed: () => Navigator.pop(c, true),
-                    child: const Text('Lanjutkan'))
-              ])) ??
+          builder: (c) => AlertDialog(
+                  scrollable: true,
+                  title: MarkazDialogTitle(title),
+                  content: Text(msg),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(c, false),
+                        child: const Text('Batal')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(c, true),
+                        child: Text(title.replaceAll('?', '')))
+                  ])) ??
       false;
   Future<String?> ask(String title,
       {String hint = '', String initial = ''}) async {
     String answer = initial;
+    final form = GlobalKey<FormState>();
+    final label = title.toLowerCase();
+    final numeric = label.contains('menit') ||
+        label.contains('bulan') ||
+        label.contains('otp') ||
+        hint.toLowerCase().contains('enam digit');
     return showDialog<String>(
         context: context,
         builder: (c) => AlertDialog(
-                title: Text(title),
-                content: TextFormField(
-                    initialValue: initial,
-                    autofocus: true,
-                    decoration: InputDecoration(hintText: hint),
-                    onChanged: (v) => answer = v),
+                scrollable: true,
+                title: MarkazDialogTitle(title, icon: Icons.edit_note_rounded),
+                content: Form(
+                    key: form,
+                    child: TextFormField(
+                        initialValue: initial,
+                        autofocus: true,
+                        keyboardType: numeric
+                            ? TextInputType.number
+                            : label.contains('whatsapp')
+                                ? TextInputType.phone
+                                : TextInputType.text,
+                        decoration: InputDecoration(
+                            labelText: title,
+                            hintText: hint.isEmpty ? null : hint),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Bagian ini perlu diisi.'
+                            : numeric && int.tryParse(v) == null
+                                ? 'Masukkan angka yang valid.'
+                                : null,
+                        onChanged: (v) => answer = v)),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(c),
                       child: const Text('Batal')),
                   FilledButton(
                       onPressed: () {
-                        if (answer.trim().isNotEmpty)
+                        if (form.currentState!.validate())
                           Navigator.pop(c, answer.trim());
                       },
-                      child: const Text('Lanjutkan'))
+                      child: const Text('Lanjutkan')),
                 ]));
   }
 
   Future<String?> choose(String title, List<(String, String)> options) async =>
       showModalBottomSheet<String>(
           context: context,
+          useSafeArea: true,
+          isScrollControlled: true,
+          constraints:
+              BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .8),
           showDragHandle: true,
           builder: (c) => SafeArea(
                   child: ListView(shrinkWrap: true, children: [
                 ListTile(
                     title:
                         Text(title, style: Theme.of(c).textTheme.titleLarge)),
+                if (options.isEmpty)
+                  const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text('Belum ada pilihan tersedia.')),
                 for (final e in options)
                   ListTile(
                       title: Text(e.$2), onTap: () => Navigator.pop(c, e.$1))
               ])));
   Widget action(String title, Future<void> Function() fn,
           {IconData icon = Icons.chevron_right}) =>
-      OutlinedButton.icon(
-          onPressed: working ? null : () => run(fn),
-          icon: Icon(icon),
-          label: Text(title));
-  Widget tile(dynamic title, [dynamic sub, dynamic end]) => ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(val(title)),
-      subtitle: sub == null ? null : Text(val(sub)),
-      trailing: end == null ? null : Text(val(end)));
+      Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: OutlinedButton.icon(
+              onPressed: working ? null : () => run(fn),
+              icon: Icon(icon),
+              label: Text(title)));
+  Widget tile(dynamic title, [dynamic sub, dynamic end]) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(val(title), style: const TextStyle(fontWeight: FontWeight.w500)),
+          if (sub != null) ...[
+            const SizedBox(height: 4),
+            Text(val(sub), style: const TextStyle(color: MarkazColors.muted))
+          ],
+        ])),
+        if (end != null) ...[
+          const SizedBox(width: 12),
+          Flexible(
+              child: Text(val(end),
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontWeight: FontWeight.w600)))
+        ],
+      ]));
   String fields(Json m, List<String> keys) => keys
       .where((k) => m[k] != null && m[k] != '')
       .map((k) => val(m[k]))
       .join(' · ');
   String date(dynamic v) => v == null ? '—' : v.toString().split('T').first;
-  Widget group(String title, List<Widget> cs) => ExpansionTile(
-      tilePadding: EdgeInsets.zero, title: Text(title), children: cs);
+  Widget group(String title, List<Widget> cs) => Card(
+      child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          children: cs));
   Future<void> document(String kind, dynamic id) async {
     final d = obj(
         await get('/api/mobile/dokumen/$kind/${Uri.encodeComponent(val(id))}'));
@@ -302,11 +359,22 @@ class _Page extends State<FeaturePage> {
   @override
   Widget build(BuildContext context) {
     final cs = loading
-        ? <Widget>[const Center(child: CircularProgressIndicator())]
+        ? <Widget>[
+            const Padding(
+                padding: EdgeInsets.all(32),
+                child: Column(children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Memuat data…')
+                ]))
+          ]
         : error != null
             ? <Widget>[
-                Text(error!),
-                action('Coba lagi', load),
+                MarkazState(
+                    title: '$name belum dapat dimuat',
+                    message: error!,
+                    pose: MascotPose.help,
+                    onAction: () => run(load)),
                 if (name == 'Akun')
                   action('Keluar akun', () async {
                     await widget.onLogout?.call();
@@ -320,7 +388,12 @@ class _Page extends State<FeaturePage> {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               if (working) const LinearProgressIndicator(),
-              if (cs.isEmpty) const Text('Belum ada data.') else ...cs
+              if (cs.isEmpty)
+                MarkazState(
+                    title: 'Belum ada data $name',
+                    message: 'Data akan ditampilkan di sini saat tersedia.')
+              else
+                ...cs
             ]));
   }
 
@@ -381,6 +454,10 @@ class _Page extends State<FeaturePage> {
       case 'Hasil Tes':
         return [
           tile('Periode', data['active_dufah']),
+          if (rows(data['data']).isEmpty)
+            const MarkazState(
+                title: 'Belum ada hasil tes',
+                message: 'Hasil akan tampil setelah nilai diterbitkan.'),
           for (final k in rows(data['data']))
             for (final s in rows(k['santri'])) ...[
               for (final u in rows(s['rata_rata_per_usbu']))

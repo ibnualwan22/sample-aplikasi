@@ -1,24 +1,26 @@
+import '../theme/markaz_theme.dart';
+import 'tafsir_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../data/quran_pages.dart';
 import 'mushaf_viewer_screen.dart';
 
 // ── Warna ─────────────────────────────────────────────────────────
-const _kBg       = Color(0xFF181A1F);
-const _kCard     = Color(0xFF1E2028);
-const _kGold     = Color(0xFFD4AF37);
-const _kGoldL    = Color(0xFFEDD56A);
-const _kGoldDim  = Color(0xFF3A2E0A);
-const _kWhite    = Colors.white;
-const _kSec      = Color(0xFFAAAAAA);
-const _kDiv      = Color(0xFF2A2A2D);
-const _kHeader   = Color(0xFF0D3330);
+const _kBg = MarkazColors.surface;
+const _kCard = MarkazColors.ivory;
+const _kGold = MarkazColors.gold;
+const _kGoldL = MarkazColors.ink;
+const _kGoldDim = MarkazColors.tint;
+const _kWhite = MarkazColors.ink;
+const _kSec = MarkazColors.muted;
+const _kDiv = MarkazColors.line;
+const _kHeader = MarkazColors.tint;
 
 class SurahDetailScreen extends StatefulWidget {
   final int surahNumber;
   final String surahName;
+
   /// Daftar 114 surah untuk navigasi swipe antar surah.
   final List<dynamic>? surahList;
 
@@ -52,17 +54,82 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────
-  dynamic get _info => (widget.surahList != null &&
-          _currentIdx < widget.surahList!.length)
-      ? widget.surahList![_currentIdx]
-      : null;
+  dynamic get _info =>
+      (widget.surahList != null && _currentIdx < widget.surahList!.length)
+          ? widget.surahList![_currentIdx]
+          : null;
 
-  String get _name     => _info?['name_latin']       ?? widget.surahName;
-  String get _arabName => _info?['name']             ?? '';
-  String get _rev      => _info?['revelation']       ?? '';
-  int    get _ayahCnt  => (_info?['number_of_ayahs'] ?? 0) as int;
-  int    get _surahNum => _currentIdx + 1;
-  int    get _juzNum   => getJuzForPage(getSurahStartPage(_surahNum));
+  String get _name => _info?['name_latin'] ?? surahNamesLatin[_surahNum];
+  String get _arabName => _info?['name'] ?? '';
+  String get _rev => _info?['revelation'] ?? '';
+  int get _ayahCnt => (_info?['number_of_ayahs'] ?? 0) as int;
+  int get _surahNum => _currentIdx + 1;
+  int get _juzNum => getJuzForPage(getSurahStartPage(_surahNum));
+
+  void _pickSurah() {
+    var query = '';
+    showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (sheetContext) => StatefulBuilder(builder: (context, update) {
+              final numbers = List.generate(114, (i) => i + 1)
+                  .where((n) =>
+                      '$n' == query ||
+                      surahNamesLatin[n]
+                          .toLowerCase()
+                          .replaceAll(RegExp(r"[\s'-]"), '')
+                          .contains(query
+                              .toLowerCase()
+                              .replaceAll(RegExp(r"[\s'-]"), '')))
+                  .toList();
+              return FractionallySizedBox(
+                  heightFactor: .85,
+                  child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                          20, 0, 20, MediaQuery.viewInsetsOf(context).bottom),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('Pindah surah',
+                                style:
+                                    Theme.of(context).textTheme.headlineSmall),
+                            const SizedBox(height: 16),
+                            TextField(
+                                decoration: const InputDecoration(
+                                    labelText: 'Nama atau nomor surah',
+                                    prefixIcon: Icon(Icons.search)),
+                                onChanged: (value) =>
+                                    update(() => query = value.trim())),
+                            const SizedBox(height: 8),
+                            Expanded(
+                                child: numbers.isEmpty
+                                    ? const Center(
+                                        child: Text('Surah tidak ditemukan.'))
+                                    : ListView.builder(
+                                        itemCount: numbers.length,
+                                        itemBuilder: (_, i) {
+                                          final number = numbers[i];
+                                          return ListTile(
+                                              title: Text(
+                                                  '$number. ${surahNamesLatin[number]}'),
+                                              selected: number == _surahNum,
+                                              selectedTileColor:
+                                                  MarkazColors.tint,
+                                              textColor: MarkazColors.ink,
+                                              selectedColor: MarkazColors.ink,
+                                              trailing: number == _surahNum
+                                                  ? const Icon(Icons.check)
+                                                  : null,
+                                              onTap: () {
+                                                Navigator.pop(sheetContext);
+                                                _pageCtrl
+                                                    .jumpToPage(number - 1);
+                                              });
+                                        })),
+                          ])));
+            }));
+  }
 
   // ── Build ─────────────────────────────────────────────────────────
   @override
@@ -83,15 +150,13 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
               itemBuilder: (_, i) => _SurahAyahPage(
                 key: ValueKey(i + 1),
                 surahNumber: i + 1,
-                surahName:
-                    widget.surahList?[i]?['name_latin'] ?? 'Surah ${i + 1}',
+                surahName: surahNamesLatin[i + 1],
                 arabicFontSize: _arabicFontSize,
               ),
             ),
           ),
         ),
       ]),
-
     );
   }
 
@@ -100,30 +165,19 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
       backgroundColor: _kCard,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new,
-            size: 18, color: _kGoldL),
+        icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: _kGoldL),
         onPressed: () => Navigator.pop(context),
       ),
       titleSpacing: 0,
-      title: GestureDetector(
-        onTap: () {/* bisa tambah picker juz nanti */},
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            border: Border.all(color: _kGold.withValues(alpha: 0.5)),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text('Juz $_juzNum',
-                style: const TextStyle(color: _kGoldL, fontSize: 13)),
-            const Icon(Icons.keyboard_arrow_down,
-                color: _kGoldL, size: 16),
-          ]),
-        ),
+      title: TextButton.icon(
+        onPressed: _pickSurah,
+        label: const Text('Surah', style: TextStyle(fontSize: 14)),
+        icon: const Icon(Icons.unfold_more, size: 18),
       ),
       actions: [
         // Font size
         PopupMenuButton<double>(
+          tooltip: 'Ukuran teks Arab',
           icon: const Icon(Icons.text_fields, color: _kGoldL, size: 20),
           color: _kCard,
           onSelected: (v) => setState(() => _arabicFontSize = v),
@@ -151,59 +205,39 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child:
-            Container(height: 1, color: _kGold.withValues(alpha: 0.15)),
+        child: Container(height: 1, color: _kGold.withValues(alpha: 0.15)),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      decoration: BoxDecoration(
+  Widget _buildHeader() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
         color: _kHeader,
-        border: Border(
-            bottom:
-                BorderSide(color: _kGold.withValues(alpha: 0.2))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _pill(_rev.isNotEmpty ? _rev : '-'),
-          // Nama Arab dalam oval
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 22, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0A2220),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                  color: _kGold.withValues(alpha: 0.6)),
-            ),
-            child: Text(
-              _arabName.isNotEmpty ? _arabName : _name,
-              style: GoogleFonts.amiri(
-                  fontSize: 20,
-                  color: _kGoldL,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
-          _pill('$_ayahCnt Ayat'),
-        ],
-      ),
-    );
-  }
-
-  Widget _pill(String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0A2220),
-          borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: _kGold.withValues(alpha: 0.35)),
-        ),
-        child: Text(text,
-            style: const TextStyle(color: _kGoldL, fontSize: 12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$_surahNum. $_name',
+              style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (_rev.isNotEmpty)
+                  Text(_rev,
+                      style: const TextStyle(color: _kSec, fontSize: 12)),
+                if (_ayahCnt > 0)
+                  Text('$_ayahCnt ayat',
+                      style: const TextStyle(color: _kSec, fontSize: 12)),
+                Text('Awal juz $_juzNum',
+                    style: const TextStyle(color: _kSec, fontSize: 12)),
+                if (_arabName.isNotEmpty)
+                  Text(_arabName,
+                      textDirection: TextDirection.rtl,
+                      style:
+                          const TextStyle(fontFamily: 'Amiri', fontSize: 20)),
+              ]),
+        ]),
       );
 
   PopupMenuItem<double> _fontItem(String label, double val) {
@@ -211,10 +245,11 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
     return PopupMenuItem<double>(
       value: val,
       child: Row(children: [
-        Icon(Icons.check,
-            color: sel ? _kGold : Colors.transparent, size: 16),
+        Icon(Icons.check, color: sel ? _kGold : Colors.transparent, size: 16),
         const SizedBox(width: 8),
-        Text(label, style: TextStyle(color: sel ? _kGoldL : _kWhite)),
+        Flexible(
+            child:
+                Text(label, style: TextStyle(color: sel ? _kGoldL : _kWhite))),
       ]),
     );
   }
@@ -257,13 +292,17 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
     if (!mounted) return;
     setState(() => _isLoading = true);
     final data = await ApiService.getSurahDetail(widget.surahNumber);
-    if (mounted) setState(() { _data = data; _isLoading = false; });
+    if (mounted)
+      setState(() {
+        _data = data;
+        _isLoading = false;
+      });
   }
 
   // ── Utilities ─────────────────────────────────────────────────────
   String _toArab(int n) {
-    const en = ['0','1','2','3','4','5','6','7','8','9'];
-    const ar = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+    const en = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     String s = n.toString();
     for (int i = 0; i < en.length; i++) s = s.replaceAll(en[i], ar[i]);
     return s;
@@ -271,20 +310,18 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
 
   String _cleanArab(String arab, int num) {
     if (widget.surahNumber != 1 && widget.surahNumber != 9 && num == 1) {
-      return arab
-          .replaceFirst('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ', '');
+      return arab.replaceFirst('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ', '');
     }
     return arab;
   }
 
   // ── Copy ──────────────────────────────────────────────────────────
   void _copyAyah(Map<String, dynamic> ayah) {
-    final num   = ayah['ayah_number'] as int;
-    final arab  = (ayah['arab'] as String).trim();
-    final tr    = (ayah['translation'] ?? '') as String;
+    final num = ayah['ayah_number'] as int;
+    final arab = (ayah['arab'] as String).trim();
+    final tr = (ayah['translation'] ?? '') as String;
 
-    final text =
-        "Allah Subhanahu Wa Ta'ala berfirman:\n\n"
+    final text = "Allah Subhanahu Wa Ta'ala berfirman:\n\n"
         "$arab\n\n"
         '"$tr"\n'
         '(QS. ${widget.surahName} ${widget.surahNumber}: Ayat $num).';
@@ -295,8 +332,7 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
         content: Row(children: const [
           Icon(Icons.check_circle, color: Colors.black87, size: 18),
           SizedBox(width: 8),
-          Text('Ayat disalin!',
-              style: TextStyle(color: Colors.black87)),
+          Text('Ayat disalin!', style: TextStyle(color: Colors.black87)),
         ]),
         backgroundColor: _kGold,
         duration: const Duration(seconds: 2),
@@ -310,11 +346,15 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
   void _showOptions(Map<String, dynamic> ayah) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .85),
       backgroundColor: _kCard,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
       builder: (_) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: ListView(shrinkWrap: true, children: [
           Container(
             width: 40,
             height: 4,
@@ -324,16 +364,15 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
           ),
           // Header info
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             child: Row(children: [
               Container(
-                width: 32, height: 32,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                     color: _kGoldDim,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                        color: _kGold.withValues(alpha: 0.5))),
+                    border: Border.all(color: _kGold.withValues(alpha: 0.5))),
                 alignment: Alignment.center,
                 child: Text(
                   '${ayah['ayah_number']}',
@@ -344,10 +383,11 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
+              Expanded(
+                  child: Text(
                 'QS. ${widget.surahName} ${widget.surahNumber}: Ayat ${ayah['ayah_number']}',
                 style: const TextStyle(color: _kSec, fontSize: 12),
-              ),
+              )),
             ]),
           ),
           const Divider(color: _kDiv),
@@ -355,15 +395,12 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: _kGoldDim,
-                  borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.copy_outlined,
-                  color: _kGoldL, size: 18),
+                  color: _kGoldDim, borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.copy_outlined, color: _kGoldL, size: 18),
             ),
             title: const Text('Salin Ayat',
                 style: TextStyle(color: _kWhite, fontWeight: FontWeight.w600)),
-            subtitle: const Text(
-                'Format siap pakai untuk disalin.',
+            subtitle: const Text('Format siap pakai untuk disalin.',
                 style: TextStyle(color: _kSec, fontSize: 11)),
             onTap: () {
               Navigator.pop(context);
@@ -374,15 +411,13 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: _kGoldDim,
-                  borderRadius: BorderRadius.circular(8)),
+                  color: _kGoldDim, borderRadius: BorderRadius.circular(8)),
               child: const Icon(Icons.auto_stories_outlined,
                   color: _kGoldL, size: 18),
             ),
             title: const Text('Lihat Tafsir',
                 style: TextStyle(color: _kWhite, fontWeight: FontWeight.w600)),
-            subtitle: const Text(
-                'Tafsir dari berbagai kitab ulama',
+            subtitle: const Text('Tafsir dari berbagai kitab ulama',
                 style: TextStyle(color: _kSec, fontSize: 11)),
             onTap: () {
               Navigator.pop(context);
@@ -397,22 +432,17 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
 
   // ── Tafsir Modal ─────────────────────────────────────────────────
   void _showTafsirModal(Map<String, dynamic> ayah) {
-    final num  = ayah['ayah_number'] as int;
-    final arab = (ayah['arab'] as String? ?? '').trim();
-    final surahName = widget.surahName;
-    final surahNum  = widget.surahNumber;
-
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _TafsirModal(
-        surahNum: surahNum,
-        ayatNum: num,
-        surahName: surahName,
-        arabText: arab,
-        transText: (ayah['translation'] as String? ?? ''),
-      ),
+      useSafeArea: true,
+      builder: (_) => FractionallySizedBox(
+          heightFactor: .94,
+          child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: TafsirScreen(
+                  initialSurah: widget.surahNumber,
+                  initialAyah: ayah['ayah_number'] as int))),
     );
   }
 
@@ -424,7 +454,7 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(_kGold)),
+            valueColor: AlwaysStoppedAnimation<Color>(MarkazColors.ink)),
       );
     }
 
@@ -456,9 +486,9 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
       padding: const EdgeInsets.only(top: 0, bottom: 48),
       itemCount: ayahs.length,
       itemBuilder: (_, i) {
-        final ayah  = ayahs[i] as Map<String, dynamic>;
-        final num   = ayah['ayah_number'] as int;
-        final arab  = _cleanArab(ayah['arab'] as String, num);
+        final ayah = ayahs[i] as Map<String, dynamic>;
+        final num = ayah['ayah_number'] as int;
+        final arab = _cleanArab(ayah['arab'] as String, num);
         final latin = (ayah['transliteration'] ?? '') as String;
         final trans = (ayah['translation'] ?? '') as String;
 
@@ -475,8 +505,11 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
                 child: Text(
                   'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.amiri(
-                      fontSize: 26, color: _kWhite, height: 2.2),
+                  style: TextStyle(
+                      fontFamily: 'Amiri',
+                      fontSize: 26,
+                      color: _kWhite,
+                      height: 2.2),
                 ),
               ),
 
@@ -496,7 +529,8 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
                           '$arab ﴿${_toArab(num)}﴾',
                           textAlign: TextAlign.right,
                           textDirection: TextDirection.rtl,
-                          style: GoogleFonts.amiri(
+                          style: TextStyle(
+                            fontFamily: 'Amiri',
                             fontSize: widget.arabicFontSize,
                             color: _kWhite,
                             height: 2.1,
@@ -508,10 +542,10 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
                           const SizedBox(height: 10),
                           Text(
                             latin,
+                            textDirection: TextDirection.ltr,
+                            textAlign: TextAlign.left,
                             style: const TextStyle(
-                                color: _kGoldL,
-                                fontSize: 13,
-                                height: 1.6),
+                                color: _kGoldL, fontSize: 13, height: 1.6),
                           ),
                         ],
 
@@ -520,24 +554,33 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
                           const SizedBox(height: 6),
                           Text(
                             trans,
+                            textDirection: TextDirection.ltr,
+                            textAlign: TextAlign.left,
                             style: const TextStyle(
-                                color: _kSec,
-                                fontSize: 14,
-                                height: 1.75),
+                                color: _kSec, fontSize: 14, height: 1.75),
                           ),
                         ],
+                        const SizedBox(height: 8),
+                        Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                                onPressed: () => _showTafsirModal(ayah),
+                                icon: const Icon(Icons.auto_stories_outlined,
+                                    size: 18),
+                                label: Text('Tafsir ayat $num',
+                                    textDirection: TextDirection.ltr))),
                         const SizedBox(height: 14),
                       ],
                     ),
                   ),
-                  
+
                   // ⋮ Kiri (berada di kiri layar karena elemen kedua dalam RTL)
                   IconButton(
-                    icon: const Icon(Icons.more_vert,
-                        color: _kSec, size: 20),
+                    tooltip: 'Pilihan ayat $num',
+                    icon: const Icon(Icons.more_vert, color: _kSec, size: 20),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                        minWidth: 36, minHeight: 36),
+                    constraints:
+                        const BoxConstraints(minWidth: 48, minHeight: 48),
                     onPressed: () => _showOptions(ayah),
                   ),
                 ],
@@ -549,225 +592,6 @@ class _SurahAyahPageState extends State<_SurahAyahPage>
           ],
         );
       },
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════
-// _TafsirModal — DraggableScrollableSheet untuk tafsir per-ayat
-// ══════════════════════════════════════════════════════════════════
-class _TafsirModal extends StatefulWidget {
-  final int surahNum;
-  final int ayatNum;
-  final String surahName;
-  final String arabText;
-  final String transText;
-
-  const _TafsirModal({
-    required this.surahNum,
-    required this.ayatNum,
-    required this.surahName,
-    required this.arabText,
-    required this.transText,
-  });
-
-  @override
-  State<_TafsirModal> createState() => _TafsirModalState();
-}
-
-class _TafsirModalState extends State<_TafsirModal> {
-  int? _selectedId;
-  String? _tafsirText;
-  bool _isLoading = false;
-  String _selectedName = 'Kemenag';
-
-  static const _kitabs = [
-    {'id': null,  'name': 'Kemenag'},
-    {'id': 14,    'name': 'Ibn Kathir'},
-    {'id': 15,    'name': 'Al-Thabari'},
-    {'id': 16,    'name': 'Muyassar'},
-    {'id': 90,    'name': 'Al-Qurthubi'},
-    {'id': 91,    'name': "Al-Sa'di"},
-    {'id': 93,    'name': 'Al-Wasith'},
-    {'id': 94,    'name': 'Al-Baghawi'},
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchTafsir(null);
-  }
-
-  Future<void> _fetchTafsir(int? tafsirId) async {
-    setState(() { _isLoading = true; _tafsirText = null; });
-    try {
-      String? result;
-      if (tafsirId == null) {
-        result = await ApiService.getTafsirIndo(widget.surahNum, widget.ayatNum);
-      } else {
-        result = await ApiService.getTafsirArab(tafsirId, widget.surahNum, widget.ayatNum);
-      }
-      if (mounted) setState(() { _tafsirText = result; _isLoading = false; });
-    } catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
-    }
-  }
-
-  void _copyTafsir() {
-    if (_tafsirText == null) return;
-    Clipboard.setData(ClipboardData(text:
-      '${widget.arabText}\n\n'
-      'Tafsir $_selectedName:\n$_tafsirText\n\n'
-      '(QS. ${widget.surahName} ${widget.surahNum}:${widget.ayatNum})'
-    ));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text('Tafsir disalin!', style: TextStyle(color: Colors.black87)),
-      backgroundColor: _kGold,
-      duration: const Duration(seconds: 2),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.65,
-      minChildSize: 0.4,
-      maxChildSize: 0.93,
-      builder: (_, ctrl) => Container(
-        decoration: const BoxDecoration(
-          color: _kCard,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(children: [
-          // Handle
-          Container(
-            width: 40, height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(color: _kDiv, borderRadius: BorderRadius.circular(2)),
-          ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _kGoldDim,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _kGold.withValues(alpha: 0.4)),
-                ),
-                child: Text('QS. ${widget.surahName} : ${widget.ayatNum}',
-                  style: const TextStyle(color: _kGoldL, fontSize: 12, fontWeight: FontWeight.w600)),
-              ),
-              const Spacer(),
-              if (_tafsirText != null)
-                IconButton(
-                  icon: const Icon(Icons.copy_outlined, color: _kGoldL, size: 20),
-                  onPressed: _copyTafsir,
-                  tooltip: 'Salin Tafsir',
-                ),
-            ]),
-          ),
-          // Preview Arab
-          if (widget.arabText.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                widget.arabText,
-                textAlign: TextAlign.right,
-                textDirection: TextDirection.rtl,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.amiri(fontSize: 20, color: _kWhite, height: 2.0),
-              ),
-            ),
-          // Chips kitab
-          SizedBox(
-            height: 44,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _kitabs.length,
-              itemBuilder: (_, i) {
-                final k    = _kitabs[i];
-                final kId  = k['id'] as int?;
-                final kNm  = k['name'] as String;
-                final sel  = _selectedId == kId;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(kNm),
-                    selected: sel,
-                    onSelected: (_) {
-                      setState(() { _selectedId = kId; _selectedName = kNm; });
-                      _fetchTafsir(kId);
-                    },
-                    selectedColor: _kGold,
-                    backgroundColor: _kBg,
-                    labelStyle: TextStyle(
-                      color: sel ? Colors.black : _kSec,
-                      fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12,
-                    ),
-                    side: BorderSide(color: sel ? _kGold : _kDiv),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    showCheckmark: false,
-                  ),
-                );
-              },
-            ),
-          ),
-          const Divider(color: _kDiv, height: 1),
-          // Konten
-          Expanded(
-            child: _isLoading
-              ? const Center(child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(_kGold)))
-              : _tafsirText == null
-                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.info_outline, color: _kSec, size: 32),
-                    const SizedBox(height: 8),
-                    Text('Tafsir $_selectedName belum tersedia untuk ayat ini.',
-                      style: const TextStyle(color: _kSec, fontSize: 13),
-                      textAlign: TextAlign.center),
-                  ]))
-                : Scrollbar(
-                    controller: ctrl,
-                    child: SingleChildScrollView(
-                      controller: ctrl,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          const Icon(Icons.auto_stories, color: _kGoldL, size: 16),
-                          const SizedBox(width: 6),
-                          Text('Tafsir $_selectedName',
-                            style: const TextStyle(color: _kGoldL, fontWeight: FontWeight.bold, fontSize: 13)),
-                        ]),
-                        const SizedBox(height: 10),
-                        Text(_tafsirText!,
-                          style: const TextStyle(color: _kWhite, fontSize: 14, height: 1.8)),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.copy_outlined, size: 16),
-                            label: const Text('Salin Tafsir'),
-                            onPressed: _copyTafsir,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _kGoldL,
-                              side: const BorderSide(color: _kGold),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ]),
-                    ),
-                  ),
-          ),
-        ]),
-      ),
     );
   }
 }

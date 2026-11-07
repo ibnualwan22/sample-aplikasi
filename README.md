@@ -1,6 +1,6 @@
 # sample_aplikasi
 
-A new Flutter project.
+Aplikasi Flutter Markaz Arabiyah. Sebelum mengerjakan antarmuka, baca [panduan desain mobile](DESIGN.md) untuk Beranda, SIAKAD, dan isi setiap fitur. Urutan penerapan dan cakupan modal tersedia dalam [rencana tema konsisten](docs/rencana-tema-konsisten.md).
 
 ## Getting Started
 

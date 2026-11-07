@@ -1,14 +1,15 @@
+import '../theme/markaz_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../data/quran_pages.dart';
 import '../services/quran_image_cache_manager.dart';
 
-const _kGold      = Color(0xFFD4AF37);
-const _kGoldLight = Color(0xFFEDD56A);
-const _kGoldDim   = Color(0xFF3A2E0A);
-const _kTextSec   = Color(0xFFAAAAAA);
-const _kBgCard2   = Color(0xFF1C1C1C);
+const _kGold = MarkazColors.gold;
+const _kGoldLight = MarkazColors.ink;
+const _kGoldDim = MarkazColors.tint;
+const _kTextSec = MarkazColors.muted;
+const _kBgCard2 = MarkazColors.ivory;
 
 class MushafViewerScreen extends StatefulWidget {
   final int initialPage;
@@ -50,41 +51,56 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
 
   void _goToPage(int page) {
     final p = page.clamp(1, kTotalMushafPages);
-    _ctrl.animateToPage(p - 1,
-        duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _ctrl.jumpToPage(p - 1);
+    } else {
+      _ctrl.animateToPage(p - 1,
+          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+    }
   }
 
   void _showJumpDialog() {
-    final tc = TextEditingController(text: '$_currentPage');
+    String answer = '$_currentPage';
+    final form = GlobalKey<FormState>();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
+        scrollable: true,
         backgroundColor: _kBgCard2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Lompat ke Halaman',
             style: TextStyle(color: _kGoldLight)),
-        content: TextField(
-          controller: tc,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 20),
-          decoration: InputDecoration(
-            hintText: '1 – $kTotalMushafPages',
-            hintStyle: const TextStyle(color: _kTextSec),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: _kGold.withValues(alpha: 0.4))),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: _kGold)),
-          ),
-        ),
+        content: Form(
+            key: form,
+            child: TextFormField(
+              initialValue: answer,
+              onChanged: (v) => answer = v,
+              validator: (v) {
+                final page = int.tryParse(v ?? '');
+                return page == null || page < 1 || page > kTotalMushafPages
+                    ? 'Masukkan halaman 1–$kTotalMushafPages.'
+                    : null;
+              },
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: MarkazColors.ink, fontSize: 20),
+              decoration: InputDecoration(
+                hintText: '1 – $kTotalMushafPages',
+                hintStyle: const TextStyle(color: _kTextSec),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        BorderSide(color: _kGold.withValues(alpha: 0.4))),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: MarkazColors.ink)),
+              ),
+            )),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child:
-                  const Text('Batal', style: TextStyle(color: _kTextSec))),
+              child: const Text('Batal', style: TextStyle(color: _kTextSec))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: _kGold,
@@ -92,8 +108,8 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8))),
             onPressed: () {
-              final p =
-                  int.tryParse(tc.text) ?? _currentPage;
+              if (!form.currentState!.validate()) return;
+              final p = int.parse(answer);
               Navigator.pop(context);
               _goToPage(p);
             },
@@ -108,11 +124,11 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   @override
   Widget build(BuildContext context) {
     final surahNum = getSurahForPage(_currentPage);
-    final juzNum   = getJuzForPage(_currentPage);
+    final juzNum = getJuzForPage(_currentPage);
     final surahName = surahNamesLatin[surahNum];
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: MarkazColors.ivory,
       body: GestureDetector(
         onTap: () => setState(() => _showOverlay = !_showOverlay),
         child: Stack(
@@ -141,7 +157,9 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
             // ── Overlay ──────────────────────────────────────────────────────
             AnimatedOpacity(
               opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 220),
+              duration: Duration(
+                  milliseconds:
+                      MediaQuery.disableAnimationsOf(context) ? 0 : 180),
               child: IgnorePointer(
                 ignoring: !_showOverlay,
                 child: Column(
@@ -162,7 +180,7 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   Widget _buildPage(int pageNum) {
     final url = mushafPageUrl(pageNum);
     return Container(
-      color: Colors.black,
+      color: MarkazColors.ivory,
       child: CachedNetworkImage(
         imageUrl: url,
         cacheManager: QuranImageCacheManager.instance,
@@ -173,7 +191,8 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
           return Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               SizedBox(
-                width: 52, height: 52,
+                width: 52,
+                height: 52,
                 child: CircularProgressIndicator(
                   value: pct,
                   valueColor: const AlwaysStoppedAnimation<Color>(_kGold),
@@ -221,10 +240,7 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   Widget _buildTopBar(String surahName, int juzNum) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: [Colors.black.withValues(alpha: 0.85), Colors.transparent],
-        ),
+        color: MarkazColors.surface,
       ),
       padding: EdgeInsets.fromLTRB(
           16, MediaQuery.of(context).padding.top + 10, 16, 24),
@@ -235,14 +251,15 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black54,
+              color: MarkazColors.tint,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: _kGold.withValues(alpha: 0.4)),
             ),
             child: const Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.arrow_back_ios_new, color: _kGoldLight, size: 14),
               SizedBox(width: 6),
-              Text('Kembali', style: TextStyle(color: _kGoldLight, fontSize: 12)),
+              Text('Kembali',
+                  style: TextStyle(color: _kGoldLight, fontSize: 12)),
             ]),
           ),
         ),
@@ -264,10 +281,7 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   Widget _buildBottomBar() {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter, end: Alignment.topCenter,
-          colors: [Colors.black.withValues(alpha: 0.85), Colors.transparent],
-        ),
+        color: MarkazColors.surface,
       ),
       padding: EdgeInsets.fromLTRB(
           20, 24, 20, MediaQuery.of(context).padding.bottom + 14),
@@ -318,11 +332,13 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
       onTap: enabled ? onTap : null,
       child: AnimatedOpacity(
         opacity: enabled ? 1.0 : 0.3,
-        duration: const Duration(milliseconds: 200),
+        duration: Duration(
+            milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 180),
         child: Container(
-          width: 44, height: 44,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: Colors.black54,
+            color: MarkazColors.tint,
             shape: BoxShape.circle,
             border: Border.all(color: _kGold.withValues(alpha: 0.4)),
           ),

@@ -1,87 +1,22 @@
 part of 'features.dart';
 
 extension _Services on _Page {
-  Future<String?> day(String label, {DateTime? min}) async {
-    final now = DateTime.now();
-    final v = await showDatePicker(
-        context: context,
-        helpText: label,
-        initialDate: min ?? now,
-        firstDate: min ?? DateTime(now.year - 1),
-        lastDate: DateTime(now.year + 2));
-    return v?.toIso8601String().split('T').first;
-  }
-
   Future<void> permit() async {
-    final t = await choose('Jenis izin', [
-      for (final s in ['HARIAN', 'BERHARI_HARI', 'KELUAR_PARE', 'TABIROT'])
-        (s, s.replaceAll('_', ' '))
-    ]);
-    if (t == null) return;
-    final mode = await choose('Untuk siapa?',
-        [('self', 'Saya sendiri'), ('group', 'Kelompok santri')]);
-    if (mode == null) return;
-    final ids = <String>{val(history.first['id'])};
-    if (mode == 'group') {
-      final list = rows(await get('/api/public/perizinan'));
-      if (!mounted) return;
-      String query = '';
-      final ok = await showModalBottomSheet<bool>(
-          context: context,
-          isScrollControlled: true,
-          builder: (c) => SafeArea(
-              child: FractionallySizedBox(
-                  heightFactor: .8,
-                  child: StatefulBuilder(
-                      builder: (c, update) => Column(children: [
-                            TextField(
-                                decoration: const InputDecoration(
-                                    labelText: 'Cari nama atau sakan'),
-                                onChanged: (v) =>
-                                    update(() => query = v.toLowerCase())),
-                            Expanded(
-                                child: ListView(children: [
-                              for (final s in list.where((s) =>
-                                  fields(s, ['nama', 'sakan'])
-                                      .toLowerCase()
-                                      .contains(query)))
-                                CheckboxListTile(
-                                    title: Text(val(s['nama'])),
-                                    subtitle:
-                                        Text(fields(s, ['kelasNama', 'sakan'])),
-                                    value: ids.contains(s['riwayatId']),
-                                    onChanged: (v) => update(() {
-                                          if (v == true) {
-                                            ids.add(s['riwayatId']);
-                                          } else {
-                                            ids.remove(s['riwayatId']);
-                                          }
-                                        }))
-                            ])),
-                            FilledButton(
-                                onPressed: ids.isEmpty
-                                    ? null
-                                    : () => Navigator.pop(c, true),
-                                child: Text('Gunakan ${ids.length} santri'))
-                          ])))));
-      if (ok != true) return;
-    }
-    final reason = await ask('Alasan izin');
-    if (reason == null) return;
-    final start = await day('Tanggal mulai');
-    if (start == null) return;
-    final end = t == 'BERHARI_HARI'
-        ? await day('Sampai tanggal', min: DateTime.parse(start))
-        : null;
-    if (t == 'BERHARI_HARI' && end == null) return;
-    if (await confirm('Kirim pengajuan?', '$reason · $start'))
-      await send('me/perizinan', {
-        'tipeIzin': t,
-        'alasan': reason,
-        'tanggalMulai': start,
-        'tanggalSelesai': end,
-        'riwayatIds': ids.toList()
-      });
+    if (history.isEmpty) return;
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => ServiceRequestForm(
+                  permit: true,
+                  ownerId: val(history.first['id']),
+                  searchPeople: (query) async =>
+                      rows(await get('/api/public/perizinan'))
+                          .where((s) => fields(s, ['nama', 'sakan'])
+                              .toLowerCase()
+                              .contains(query.toLowerCase()))
+                          .toList(),
+                  onSubmit: (body) => send('me/perizinan', body),
+                )));
   }
 
   Future<void> selfie(Json p) async {
@@ -108,7 +43,12 @@ extension _Services on _Page {
     switch (name) {
       case 'Perizinan':
         return [
-          if (history.isNotEmpty) action('Ajukan izin', permit),
+          if (history.isNotEmpty)
+            action('Ajukan izin', permit, icon: Icons.add),
+          if (history.every((h) => rows(h['perizinan']).isEmpty))
+            const MarkazState(
+                title: 'Belum ada riwayat izin',
+                message: 'Pengajuan dan status izin Anda akan tampil di sini.'),
           for (final h in history)
             for (final p in rows(h['perizinan']))
               group(fields(p, ['tipeIzin', 'statusIzin']), [
@@ -121,6 +61,11 @@ extension _Services on _Page {
                     if (mounted)
                       await showModalBottomSheet(
                           context: context,
+                          useSafeArea: true,
+                          isScrollControlled: true,
+                          constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.sizeOf(context).height * .85),
                           builder: (c) => ListView(
                                   padding: const EdgeInsets.all(18),
                                   children: [
@@ -191,7 +136,11 @@ extension _Services on _Page {
           ];
         final programs = rows(obj(extra['meta'])['programTersedia']);
         return [
-          if (programs.isEmpty) tile('Belum ada program tersedia.'),
+          if (programs.isEmpty)
+            const MarkazState(
+                title: 'Belum ada program tersedia',
+                message:
+                    'Pilihan daftar ulang akan tampil saat pendaftaran dibuka.'),
           for (final p in programs)
             group(val(p['nama']), [
               tile(p['hargaFormatted'],
@@ -216,7 +165,13 @@ extension _Services on _Page {
         ];
       case 'Pemilihan':
         final s = obj(data['sesi']);
-        if (s.isEmpty) return [tile('Belum ada sesi pemilihan.')];
+        if (s.isEmpty)
+          return [
+            const MarkazState(
+                title: 'Belum ada sesi pemilihan',
+                message:
+                    'Sesi dan kandidat akan tampil ketika pemilihan dibuka.')
+          ];
         return [
           tile(s['judul'], fields(s, ['dufahNama', 'status'])),
           if (data['sudahMemilih'] == true) tile('Suara Anda sudah tercatat.'),
@@ -241,6 +196,10 @@ extension _Services on _Page {
               await load();
             }
           }),
+          if (rows(data['data']).isEmpty)
+            const MarkazState(
+                title: 'Belum ada album',
+                message: 'Coba pilih periode lainnya.'),
           for (final g in rows(data['data']))
             ListTile(
                 title: Text(val(g['judul'])),
@@ -272,12 +231,14 @@ extension _Services on _Page {
                             child: Tooltip(
                                 message: val(p['nama']),
                                 child: const Icon(Icons.location_on,
-                                    color: Colors.amber)))
+                                    color: MarkazColors.ink)))
                     ]),
                     if (route.isNotEmpty)
                       PolylineLayer(polylines: [
                         Polyline(
-                            points: route, color: Colors.amber, strokeWidth: 4)
+                            points: route,
+                            color: MarkazColors.ink,
+                            strokeWidth: 4)
                       ]),
                     const SimpleAttributionWidget(
                         source: Text('OpenStreetMap contributors'))
@@ -314,7 +275,7 @@ extension _Services on _Page {
                               (pt[0] as num).toDouble())
                       ];
                       if (mounted && points.isNotEmpty) {
-                        setState(() => route = points);
+                        updateRoute(points);
                         map.fitCamera(CameraFit.bounds(
                             bounds: LatLngBounds.fromPoints(points),
                             padding: const EdgeInsets.all(30)));
@@ -397,67 +358,24 @@ extension _Services on _Page {
       case 'Lapor Mukholif':
         return [
           action('Buat laporan', () async {
-            Future<Json?> select(String label) async {
-              final q = await ask(label);
-              if (q == null) return null;
-              final options = rows(await get(
-                      'mukholif/search-santri?q=${Uri.encodeQueryComponent(q)}'))
-                  .where((f) => f['id'] != user['id'])
-                  .toList();
-              final id = await choose('Pilih santri', [
-                for (final f in options)
-                  (val(f['id']), fields(f, ['nama', 'kelas']))
-              ]);
-              return options.where((p) => p['id'] == id).firstOrNull;
-            }
-
-            final targets = <String>{};
-            while (true) {
-              final s = await select('Cari santri pelanggar');
-              if (s == null) return;
-              targets.add(val(s['id']));
-              final more = await choose('Pelanggar: ${targets.length}', [
-                ('next', 'Lanjutkan laporan'),
-                ('more', 'Tambah pelanggar')
-              ]);
-              if (more == null) return;
-              if (more == 'next') break;
-            }
-            Json? reporter;
-            if (data['isLajnah'] == true) {
-              final mode = await choose('Pelapor',
-                  [('self', 'Saya sendiri'), ('other', 'Pilih pelapor lain')]);
-              if (mode == null) return;
-              if (mode == 'other') {
-                reporter = await select('Nama pelapor');
-                if (reporter == null) return;
-              }
-            }
-            final tanggal = await day('Tanggal kejadian');
-            if (tanggal == null || !mounted) return;
-            final jam = await showTimePicker(
-                context: context, initialTime: TimeOfDay.now());
-            if (jam == null) return;
-            final waktu = DateTime.parse(tanggal)
-                .add(Duration(hours: jam.hour, minutes: jam.minute));
-            final place = await ask('Tempat kejadian');
-            if (place == null) return;
-            final said = await ask('Perkataan yang diucapkan');
-            if (said == null) return;
-            if (await confirm('Kirim laporan?', '$said · $place'))
-              await send(endpoint, {
-                'laporan': [
-                  {
-                    'pelanggarIds': targets.toList(),
-                    'tempatMelanggar': place,
-                    'perkataanYgDiucapkan': said,
-                    'waktuMelanggar': waktu.toUtc().toIso8601String(),
-                    if (reporter != null) 'pelaporKustomId': reporter['id'],
-                    if (reporter != null) 'pelaporKustomNama': reporter['nama']
-                  }
-                ]
-              });
+            await Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => ServiceRequestForm(
+                          permit: false,
+                          ownerId: val(user['id']),
+                          canChooseReporter: data['isLajnah'] == true,
+                          searchPeople: (query) async => rows(await get(
+                                  'mukholif/search-santri?q=${Uri.encodeQueryComponent(query)}'))
+                              .where((s) => s['id'] != user['id'])
+                              .toList(),
+                          onSubmit: (body) => send(endpoint, body),
+                        )));
           }),
+          if (rows(data['laporanList']).isEmpty)
+            const MarkazState(
+                title: 'Belum ada laporan',
+                message: 'Laporan yang sudah dikirim akan tampil di sini.'),
           for (final r in rows(data['laporanList']))
             tile(r['tempatMelanggar'],
                 fields(r, ['perkataanYgDiucapkan', 'detailKejadian']))
@@ -499,6 +417,7 @@ extension _Services on _Page {
             if (mounted)
               await showModalBottomSheet(
                   context: context,
+                  useSafeArea: true,
                   builder: (_) =>
                       ListView(padding: const EdgeInsets.all(18), children: [
                         tile('Nilai tahriri', d['nilaiTahriri']),

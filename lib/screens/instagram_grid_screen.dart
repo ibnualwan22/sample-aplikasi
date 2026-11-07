@@ -1,14 +1,15 @@
+import '../theme/markaz_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 
-const kBgDark = Color(0xFF0A0A0A);
-const kBgCard = Color(0xFF181818);
-const kGold = Color(0xFFD4AF37);
-const kGoldLight = Color(0xFFEDD56A);
-const kTextPri = Colors.white;
-const kTextSec = Color(0xFFAAAAAA);
+const kBgDark = MarkazColors.surface;
+const kBgCard = MarkazColors.surface;
+const kGold = MarkazColors.gold;
+const kGoldLight = MarkazColors.ink;
+const kTextPri = MarkazColors.ink;
+const kTextSec = MarkazColors.muted;
 
 class InstagramGridScreen extends StatefulWidget {
   const InstagramGridScreen({super.key});
@@ -33,13 +34,16 @@ class _InstagramGridScreenState extends State<InstagramGridScreen> {
       if (res != null && res['success'] == true) {
         final all = res['data'] as List<dynamic>? ?? [];
         final subset = all.take(9).toList(); // Mengambil 9 post terbaru saja
-        
+
         // Auto-Scrape for missing thumbnails
         await Future.wait(subset.map((post) async {
           final tUrl = post['thumbnailUrl'];
           final pUrl = post['url'];
-          if ((tUrl == null || tUrl.toString().isEmpty) && pUrl != null && pUrl.toString().isNotEmpty) {
-            final extracted = await ApiService.extractInstagramThumbnail(pUrl.toString());
+          if ((tUrl == null || tUrl.toString().isEmpty) &&
+              pUrl != null &&
+              pUrl.toString().isNotEmpty) {
+            final extracted =
+                await ApiService.extractInstagramThumbnail(pUrl.toString());
             if (extracted != null) {
               post['thumbnailUrl'] = extracted;
             }
@@ -77,20 +81,26 @@ class _InstagramGridScreenState extends State<InstagramGridScreen> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: kGold),
+          icon: const Icon(Icons.arrow_back, color: MarkazColors.ink),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           '9 Postingan Terbaru',
-          style: TextStyle(color: kGold, fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+              color: MarkazColors.ink,
+              fontWeight: FontWeight.bold,
+              fontSize: 18),
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: kGold))
+          ? const Center(child: CircularProgressIndicator())
           : _posts.isEmpty
-              ? const Center(child: Text('Belum ada konten Instagram', style: TextStyle(color: kTextSec)))
+              ? const Center(
+                  child: Text('Belum ada konten Instagram',
+                      style: TextStyle(color: kTextSec)))
               : GridView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     crossAxisSpacing: 8,
@@ -110,19 +120,24 @@ class _InstagramGridScreenState extends State<InstagramGridScreen> {
                         decoration: BoxDecoration(
                           color: kBgCard,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: kGold.withOpacity(0.2)),
+                          border:
+                              Border.all(color: kGold.withValues(alpha: 0.2)),
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: thumb.isEmpty
-                            ? Icon(Icons.camera_alt, color: Colors.white.withOpacity(0.1), size: 30)
+                            ? Icon(Icons.camera_alt,
+                                color: MarkazColors.muted, size: 30)
                             : CachedNetworkImage(
                                 imageUrl: thumb,
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) => const Center(
-                                  child: CircularProgressIndicator(color: kGold, strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                      color: MarkazColors.ink, strokeWidth: 2),
                                 ),
-                                errorWidget: (context, url, error) =>
-                                    Icon(Icons.broken_image, color: Colors.white.withOpacity(0.1), size: 30),
+                                errorWidget: (context, url, error) => Icon(
+                                    Icons.broken_image,
+                                    color: MarkazColors.muted,
+                                    size: 30),
                               ),
                       ),
                     );

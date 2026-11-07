@@ -1,3 +1,4 @@
+import '../theme/markaz_theme.dart';
 import 'package:flutter/material.dart';
 
 typedef PrayerInfo = ({
@@ -26,25 +27,25 @@ class PrayerPanel extends StatelessWidget {
         final theme = Theme.of(c);
         final clock =
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(p.location, style: theme.textTheme.bodySmall),
+          Text('Waktu setempat', style: theme.textTheme.bodySmall),
           Text(p.clock,
               style: theme.textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.w600))
+                  ?.copyWith(fontWeight: FontWeight.w500, fontSize: 36))
         ]);
         final prayer =
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Salat berikutnya', style: theme.textTheme.bodySmall),
           Text('${p.prayer} ${p.time}',
               style: theme.textTheme.titleMedium
-                  ?.copyWith(color: theme.colorScheme.primary)),
+                  ?.copyWith(color: MarkazColors.ink)),
           if (p.time != '--:--' && p.countdown.isNotEmpty)
             Text(p.countdown, style: theme.textTheme.bodySmall)
         ]);
         return Material(
-            color: const Color(0xff22221d),
-            borderRadius: BorderRadius.circular(8),
+            color: MarkazColors.ivory,
+            borderRadius: BorderRadius.circular(14),
             child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
                 onTap: p.schedule,
                 child: Padding(
                     padding: const EdgeInsets.all(14),

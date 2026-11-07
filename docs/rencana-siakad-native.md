@@ -1,5 +1,7 @@
 # Rencana rilis pertama · SIAKAD Markaz Arabiyah
 
+**Acuan visual terkini.** Tema putih–emas #FFCF40, maskot dan ikon berlabel mengikuti [DESIGN.md](../DESIGN.md) serta [rencana penerapan tema](rencana-tema-konsisten.md). Konsep arang di bawah merupakan catatan rancangan awal.
+
 **Status: rancangan, belum diimplementasikan.** Dokumen ini menggantikan pendekatan WebView dalam rencana pengembangan. APK uji dan `siakad-portal.md` yang lama masih menggambarkan implementasi sebelumnya.
 
 **Keputusan:** lanjutkan proyek Flutter `sample-aplikasi`. Beranda publik, Al-Qur'an, kalender dan layanan umum tetap dapat dipakai tanpa akun. SIAKAD adalah ruang santri di dalam aplikasi. Seluruh fitur yang dapat diakses santri di website masuk satu rilis Android, termasuk fitur khusus program dan amanah. Panel petugas/admin tidak termasuk. Urutan kerja di bawah ini adalah urutan pembangunan, bukan pemotongan fitur rilis.

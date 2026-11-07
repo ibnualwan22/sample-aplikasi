@@ -1,3 +1,4 @@
+import '../widgets/markaz_components.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -134,7 +135,8 @@ class _Scan extends State<ScanMode> {
                                   'Tunjukkan QR kepada petugas dan tunggu konfirmasi.')
                             ]
                           : [
-                              const Icon(Icons.check_circle_outline, size: 56),
+                              const MarkazMascot(
+                                  pose: MascotPose.success, size: 144),
                               Text(result!),
                               const Text('Kehadiran sudah tercatat.'),
                               FilledButton(

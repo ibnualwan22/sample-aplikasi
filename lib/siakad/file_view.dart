@@ -1,3 +1,4 @@
+import '../theme/markaz_theme.dart';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +69,9 @@ class _FileView extends State<SantriFileView> {
       ]),
       body: widget.type == 'application/pdf'
           ? PdfPreview(
+              actionBarTheme: const PdfActionBarTheme(
+                  backgroundColor: MarkazColors.tint,
+                  iconColor: MarkazColors.ink),
               build: (_) => widget.bytes,
               pdfFileName: widget.filename,
               canChangePageFormat: false,

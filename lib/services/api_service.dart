@@ -5,28 +5,30 @@ import '../config/app_config.dart';
 
 // ── Tafsir sources dari quran.com ─────────────────────────────────
 const kTafsirArab = [
-  {'id': 14,  'name': 'Ibn Kathir'},
-  {'id': 15,  'name': 'Al-Thabari'},
-  {'id': 16,  'name': 'Muyassar'},
-  {'id': 90,  'name': 'Al-Qurthubi'},
-  {'id': 91,  'name': "Al-Sa'di"},
-  {'id': 93,  'name': 'Al-Wasith'},
-  {'id': 94,  'name': 'Al-Baghawi'},
+  {'id': 14, 'name': 'Ibn Kathir'},
+  {'id': 15, 'name': 'Al-Thabari'},
+  {'id': 16, 'name': 'Muyassar'},
+  {'id': 90, 'name': 'Al-Qurthubi'},
+  {'id': 91, 'name': "Al-Sa'di"},
+  {'id': 93, 'name': 'Al-Wasith'},
+  {'id': 94, 'name': 'Al-Baghawi'},
 ];
 
 class ApiService {
-  static String get _quranBase  => AppConfig.quranApiBaseUrl;
+  static String get _quranBase => AppConfig.quranApiBaseUrl;
   static String get _equranBase => AppConfig.equranApiBaseUrl;
-  static String get _siakadBase  => AppConfig.siakadApiBaseUrl;
+  static String get _siakadBase => AppConfig.siakadApiBaseUrl;
 
   // Mencari ID Kota berdasarkan keyword (misal 'sleman' atau 'jepara')
   static Future<String?> getCityId(String keyword) async {
     try {
-      final response = await http.get(
-          Uri.parse('$_quranBase/sholat/kabkota/cari/$keyword'));
+      final response =
+          await http.get(Uri.parse('$_quranBase/sholat/kabkota/cari/$keyword'));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        if (json['status'] == true && json['data'] != null && json['data'].isNotEmpty) {
+        if (json['status'] == true &&
+            json['data'] != null &&
+            json['data'].isNotEmpty) {
           // Ambil ID kota pertama yang cocok
           return json['data'][0]['id'];
         }
@@ -40,8 +42,8 @@ class ApiService {
   // Mengambil jadwal sholat hari ini berdasarkan ID Kota
   static Future<Map<String, dynamic>?> getTodaySchedule(String cityId) async {
     try {
-      final response = await http.get(
-          Uri.parse('$_quranBase/sholat/jadwal/$cityId/today'));
+      final response =
+          await http.get(Uri.parse('$_quranBase/sholat/jadwal/$cityId/today'));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json['status'] == true && json['data'] != null) {
@@ -89,8 +91,8 @@ class ApiService {
 
     // 2. Tidak ada di cache → fetch dari API
     try {
-      final response = await http.get(
-          Uri.parse('$_equranBase/surat/$surahNumber'));
+      final response =
+          await http.get(Uri.parse('$_equranBase/surat/$surahNumber'));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json['code'] == 200 && json['data'] != null) {
@@ -99,12 +101,14 @@ class ApiService {
             'number_of_ayahs': data['jumlahAyat'],
             'name': data['nama'],
             'revelation': data['tempatTurun'],
-            'ayahs': (data['ayat'] as List).map((a) => {
-              'ayah_number': a['nomorAyat'],
-              'arab': a['teksArab'],
-              'transliteration': a['teksLatin'] ?? '',
-              'translation': a['teksIndonesia'],
-            }).toList(),
+            'ayahs': (data['ayat'] as List)
+                .map((a) => {
+                      'ayah_number': a['nomorAyat'],
+                      'arab': a['teksArab'],
+                      'transliteration': a['teksLatin'] ?? '',
+                      'translation': a['teksIndonesia'],
+                    })
+                .toList(),
           };
           // 3. Simpan ke cache untuk next time
           await QuranCacheService.saveSurahDetail(surahNumber, result);
@@ -120,8 +124,7 @@ class ApiService {
   // Mengambil daftar postingan Instagram dari API SIAKAD (Vercel)
   static Future<Map<String, dynamic>?> getInstagramPosts() async {
     try {
-      final response = await http.get(
-          Uri.parse('$_siakadBase/instagram/feed'));
+      final response = await http.get(Uri.parse('$_siakadBase/instagram/feed'));
       return jsonDecode(response.body);
     } catch (e) {
       print('Error getInstagramPosts: $e');
@@ -130,7 +133,8 @@ class ApiService {
   }
 
   // Mengambil agenda rutinan dari API SIAKAD (Vercel)
-  static Future<Map<String, dynamic>?> getAgenda({int? month, int? year}) async {
+  static Future<Map<String, dynamic>?> getAgenda(
+      {int? month, int? year}) async {
     try {
       String url = '$_siakadBase/mobile/agenda';
       List<String> queryParams = [];
@@ -149,40 +153,38 @@ class ApiService {
 
   // ── Tafsir dari quran.com API ────────────────────────────────────
 
-  /// Ambil terjemahan Kemenag Indonesia per ayat — dari equran.id
-  /// Fetch surah lalu cari ayat yang sesuai (equran.id cache otomatis jika sudah pernah dibuka)
+  /// Tafsir Kemenag dari endpoint tafsir, terpisah dari terjemahan ayat.
   static Future<String?> getTafsirIndo(int surahNum, int ayatNum) async {
     try {
-      final url = '$_equranBase/surat/$surahNum';
-      final res = await http.get(Uri.parse(url));
-      if (res.statusCode == 200) {
-        final jsonBody = jsonDecode(res.body);
-        final ayatList = jsonBody['data']?['ayat'] as List?;
-        if (ayatList != null) {
-          for (final a in ayatList) {
-            if (a['nomorAyat'] == ayatNum) {
-              final teks = a['teksIndonesia'] as String?;
-              return teks?.trim();
-            }
-          }
+      final res = await http
+          .get(Uri.parse('$_equranBase/tafsir/$surahNum'))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(res.body);
+      final entries = body['data']?['tafsir'] as List?;
+      for (final entry in entries ?? []) {
+        if (entry['ayat'] == ayatNum) {
+          final text = (entry['teks'] as String?)?.trim();
+          return text == null || text.isEmpty ? null : text;
         }
       }
-    } catch (e) {
-      print('Error getTafsirIndo: \$e');
-    }
+    } catch (_) {/* The reading view exposes a retry action. */}
     return null;
   }
 
   /// Ambil tafsir Arab berdasarkan ID kitab dari quran.com.
   /// [tafsirId]: gunakan konstanta dari kTafsirArab
-  static Future<String?> getTafsirArab(int tafsirId, int surahNum, int ayatNum) async {
+  static Future<String?> getTafsirArab(
+      int tafsirId, int surahNum, int ayatNum) async {
     return _fetchTafsir(tafsirId, surahNum, ayatNum);
   }
 
   /// Fetch helper — quran.com v4 tafsir by ayah
-  static Future<String?> _fetchTafsir(int tafsirId, int surahNum, int ayatNum) async {
+  static Future<String?> _fetchTafsir(
+      int tafsirId, int surahNum, int ayatNum) async {
     try {
-      final url = 'https://api.quran.com/api/v4/tafsirs/$tafsirId/by_ayah/$surahNum:$ayatNum';
+      final url =
+          'https://api.quran.com/api/v4/tafsirs/$tafsirId/by_ayah/$surahNum:$ayatNum';
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body);
