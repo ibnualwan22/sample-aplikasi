@@ -20,6 +20,7 @@ import 'tafsir_screen.dart';
 import 'quran_screen.dart';
 import 'instagram_grid_screen.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
 
 // ============================================================
@@ -488,6 +489,8 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildSectionTitle('Kabar Markaz', context),
             const SizedBox(height: 12),
             _buildInstagramList(context),
+            const SizedBox(height: 24),
+            _buildSocialSection(context),
           ])));
 
   Widget _dailyPrayers() {
@@ -644,6 +647,79 @@ class _HomeScreenState extends State<HomeScreen> {
       clipBehavior: Clip.antiAlias,
       child: WebViewWidget(controller: _elfsightWebViewController!),
     );
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // IKUTI KAMI (logo sosmed)
+  // ──────────────────────────────────────────────────────────
+  Widget _buildSocialSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                    color: kGold, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(width: 8),
+            const Text('Ikuti Kami',
+                style: TextStyle(
+                    color: kTextPri,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _socialButton('Instagram', 'assets/icons/instagram.svg',
+                'https://www.instagram.com/ofc_markazarabiyah/'),
+            _socialButton('TikTok', 'assets/icons/tiktok.svg',
+                'https://www.tiktok.com/@markazarabiyah/'),
+            _socialButton(
+                'Website', null, 'https://www.markazarabiyah.com/'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _socialButton(String label, String? svgAsset, String url) {
+    final graphic = svgAsset != null
+        ? SvgPicture.asset(svgAsset,
+            width: 26,
+            height: 26,
+            colorFilter: const ColorFilter.mode(
+                MarkazColors.ink, BlendMode.srcIn))
+        : const Icon(Icons.language, size: 26, color: MarkazColors.ink);
+    return Column(children: [
+      Material(
+        color: MarkazColors.tint,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => _openSocial(url),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: graphic,
+          ),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text(label,
+          style: const TextStyle(fontSize: 12, color: MarkazColors.muted)),
+    ]);
+  }
+
+  Future<void> _openSocial(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }
 

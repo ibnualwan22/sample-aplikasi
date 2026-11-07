@@ -37,6 +37,7 @@ dependencies:
   pdf: ^3.12.0
   printing: ^5.14.3
   flutter_html: ^3.0.0
+  flutter_svg: ^2.0.0
   html: 0.15.6
   image: 4.8.0
 
@@ -52,6 +53,7 @@ flutter:
     - shorebird.yaml
     - assets/quran_index.json
     - assets/mascot/
+    - assets/icons/
   uses-material-design: true
   fonts:
     - family: Roboto
