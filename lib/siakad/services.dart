@@ -101,63 +101,87 @@ extension _Services on _Page {
   List<Widget> services() {
     switch (name) {
       case 'Perizinan':
+        final permits = rows(currentPeriod['perizinan'])
+          ..sort((a, b) =>
+              val(b['tanggalMulai']).compareTo(val(a['tanggalMulai'])));
+        final active = permits
+            .where((p) => ['AKTIF', 'MENUNGGU'].contains(permitStatus(p)))
+            .length;
+        final visible = permits
+            .where((p) =>
+                recordFilter == 'Semua' ||
+                (recordFilter == 'Aktif / menunggu'
+                    ? ['AKTIF', 'MENUNGGU'].contains(permitStatus(p))
+                    : !['AKTIF', 'MENUNGGU'].contains(permitStatus(p))))
+            .toList();
         return [
+          if (history.isNotEmpty) periodPicker(),
+          statistics(
+              [('Total izin', permits.length), ('Aktif / menunggu', active)]),
+          filters(['Semua', 'Aktif / menunggu', 'Riwayat']),
           if (history.isNotEmpty)
-            action('Ajukan izin', permit, icon: Icons.add),
-          if (history.every((h) => rows(h['perizinan']).isEmpty))
+            primary('Ajukan izin', permit, icon: Icons.add),
+          if (permits.isEmpty)
             const MarkazState(
                 title: 'Belum ada riwayat izin',
                 message: 'Pengajuan dan status izin Anda akan tampil di sini.'),
-          for (final h in history)
-            for (final p in rows(h['perizinan']))
-              group(fields(p, ['tipeIzin', 'statusIzin']), [
-                tile(p['alasan'], date(p['tanggalMulai'])),
-                tile('Nomor tasrih', p['nomorTasrih']),
-                if (p['grupTasrihId'] != null)
-                  action('Lihat tasrih', () async {
-                    final d = await get(
-                        '/api/public/perizinan/tasrih/${p['grupTasrihId']}');
-                    if (mounted)
-                      await showModalBottomSheet(
-                          context: context,
-                          useSafeArea: true,
-                          isScrollControlled: true,
-                          constraints: BoxConstraints(
-                              maxHeight:
-                                  MediaQuery.sizeOf(context).height * .85),
-                          builder: (c) => ListView(
-                                  padding: const EdgeInsets.all(18),
-                                  children: [
-                                    tile(
-                                        d['nomorTasrih'],
-                                        fields(obj(d),
-                                            ['tipeIzin', 'statusIzin'])),
-                                    tile(d['alasan'], date(d['tanggalMulai'])),
-                                    for (final r in rows(d['records']))
-                                      tile(
-                                          obj(obj(r['riwayat'])['santri'])[
-                                              'nama'],
-                                          r['sakan'])
-                                  ]));
-                  }),
-                if (p['tanggalKembali'] != null)
-                  tile('Kembali', date(p['tanggalKembali'])),
-                if (p['statusIzin'] == 'AKTIF' &&
-                    ['KELUAR_PARE', 'BERHARI_HARI'].contains(p['tipeIzin']) &&
-                    p['selfieAt'] == null)
-                  action('Konfirmasi kembali dengan selfie', () => selfie(p),
-                      icon: Icons.camera_alt_outlined)
-              ])
+          if (permits.isNotEmpty && visible.isEmpty)
+            const Text('Tidak ada izin pada pilihan ini.'),
+          for (final p in visible)
+            panel(readable(p['tipeIzin']), [
+              Align(
+                  alignment: Alignment.centerLeft,
+                  child: badge(permitStatus(p))),
+              tile(p['alasan'], date(p['tanggalMulai'])),
+              tile('Nomor tasrih', p['nomorTasrih']),
+              if (p['grupTasrihId'] != null)
+                action('Lihat tasrih', () async {
+                  final d = await get(
+                      '/api/public/perizinan/tasrih/${p['grupTasrihId']}');
+                  if (mounted)
+                    await detailSheet('Tasrih ${val(d['nomorTasrih'])}', [
+                      badge(d['statusIzin']),
+                      tile(readable(d['tipeIzin']), d['alasan']),
+                      tile('Mulai', date(d['tanggalMulai'])),
+                      section('Pemohon'),
+                      for (final r in rows(d['records']))
+                        tile(obj(obj(r['riwayat'])['santri'])['nama'],
+                            r['sakan']),
+                    ]);
+                }),
+              if (p['tanggalKembali'] != null)
+                tile('Kembali', date(p['tanggalKembali'])),
+              if (permitStatus(p) == 'AKTIF' &&
+                  ['KELUAR_PARE', 'BERHARI_HARI'].contains(p['tipeIzin']) &&
+                  p['selfieAt'] == null)
+                action('Konfirmasi kembali dengan selfie', () => selfie(p),
+                    icon: Icons.camera_alt_outlined)
+            ])
         ];
       case 'Check out':
         final p = obj(data['pengajuan']);
         return [
-          if (p.isNotEmpty) tile(p['status'], p['alasan']),
+          if (p.isEmpty)
+            panel(
+                'Belum ada pengajuan',
+                [
+                  const Text(
+                      'Isi alasan check out untuk memulai proses persetujuan.')
+                ],
+                tinted: true),
+          if (p.isNotEmpty)
+            panel('Pengajuan Anda', [Text(val(p['alasan']))],
+                badge: badge(p['status']), tinted: true),
+          if (rows(p['approvals']).isNotEmpty) section('Tahapan persetujuan'),
           for (final a in rows(p['approvals']))
-            tile(a['role'] ?? obj(a['user'])['nama'],
-                fields(a, ['status', 'catatan'])),
+            panel(
+                val(a['role'] ?? obj(a['user'])['nama']),
+                [
+                  if (a['catatan'] != null) Text(val(a['catatan'])),
+                ],
+                badge: badge(a['status'])),
           if (p.isEmpty || p['status'] == 'DIBATALKAN')
-            action('Ajukan check out', () async {
+            primary('Ajukan check out', () async {
               final v = await ask('Alasan check out');
               if (v != null && await confirm('Ajukan check out?', v))
                 await send(endpoint, {'alasan': v});
@@ -165,12 +189,13 @@ extension _Services on _Page {
         ];
       case 'WhatsApp AI':
         return [
-          tile(
+          panel(
               data['terhubung'] == true
                   ? 'Nomor terhubung'
                   : 'Nomor belum terhubung',
-              data['noWaMasked']),
-          action('Verifikasi nomor WhatsApp', () async {
+              [Text(val(data['noWaMasked']))],
+              tinted: true),
+          primary('Verifikasi nomor WhatsApp', () async {
             final n = await ask('Nomor WhatsApp', hint: '08…');
             if (n == null) return;
             final d = await get('me/no-wa/request', body: {'noWa': n});
@@ -183,11 +208,19 @@ extension _Services on _Page {
         final p = obj(obj(data['data'])['pending']);
         if (p.isNotEmpty)
           return [
-            tile('Menunggu verifikasi', p['noKwitansi']),
+            panel(
+                'Tagihan daftar ulang',
+                [
+                  Text(_rp(p['totalTagihan']),
+                      style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 8),
+                  Text('No. kwitansi ${val(p['noKwitansi'])}'),
+                ],
+                badge: badge('Menunggu verifikasi'),
+                tinted: true),
             tile('Program', obj(p['program'])['nama']),
             if (obj(p['dufah']).isNotEmpty)
               tile('Dufah', obj(p['dufah'])['nama']),
-            tile('Jumlah transfer', _rp(p['totalTagihan'])),
             if (p['kodeUnik'] != null) ...[
               tile('Kode unik', '+${p['kodeUnik']}'),
               tile('Catatan',
@@ -199,15 +232,15 @@ extension _Services on _Page {
               await Clipboard.setData(
                   ClipboardData(text: val(p['noKwitansi'])));
               if (mounted)
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('No. Kwitansi disalin.')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No. Kwitansi disalin.')));
             }, icon: Icons.copy_rounded),
             action('Salin No. Rekening', () async {
               await Clipboard.setData(
                   const ClipboardData(text: '055501001108569'));
               if (mounted)
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('No. Rekening disalin.')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No. Rekening disalin.')));
             }, icon: Icons.copy_rounded),
             action(
                 'Konfirmasi via WhatsApp Admin',
@@ -226,10 +259,9 @@ extension _Services on _Page {
         final num? sisaRaw =
             masa['sisaBulanBerjalan'] ?? masa['sisaKoutaBulan'];
         final int? sisaBulan = sisaRaw?.round();
-        final berakhir =
-            adjustDufahName(val(masa['berakhirPadaDufahNama']));
-        final berjalan = adjustDufahName(
-            val(obj(masa['dufahSekarangSistem'])['nama']));
+        final berakhir = adjustDufahName(val(masa['berakhirPadaDufahNama']));
+        final berjalan =
+            adjustDufahName(val(obj(masa['dufahSekarangSistem'])['nama']));
         final berakhirTampil =
             berakhir != '—' && berakhir != 'Belum Ditentukan';
         final berjalanTampil =
@@ -262,19 +294,14 @@ extension _Services on _Page {
                         if (berakhirTampil) ...[
                           const SizedBox(height: 8),
                           Text('Berakhir pada: $berakhir',
-                              style: const TextStyle(
-                                  color: MarkazColors.muted)),
+                              style:
+                                  const TextStyle(color: MarkazColors.muted)),
                         ],
                         if (berjalanTampil) ...[
                           const SizedBox(height: 4),
                           Text('Sedang berjalan: $berjalan',
-                              style: const TextStyle(
-                                  color: MarkazColors.muted)),
-                        ],
-                        if (sisaBulan != null) ...[
-                          const SizedBox(height: 12),
-                          LinearProgressIndicator(
-                              value: (sisaBulan / 12).clamp(0.0, 1.0)),
+                              style:
+                                  const TextStyle(color: MarkazColors.muted)),
                         ],
                         if (wajib) ...[
                           const SizedBox(height: 12),
@@ -297,8 +324,8 @@ extension _Services on _Page {
                           const SizedBox(height: 4),
                           Text(
                               'Anda memiliki sisa kuota ${sisaBulan ?? '—'} bulan${berakhirTampil ? ' (berakhir $berakhir)' : ''}. Pilih program untuk periode berikutnya di bawah ini.',
-                              style: const TextStyle(
-                                  color: MarkazColors.muted)),
+                              style:
+                                  const TextStyle(color: MarkazColors.muted)),
                         ]))),
           Padding(
               padding: const EdgeInsets.only(top: 16, bottom: 4),
@@ -311,14 +338,10 @@ extension _Services on _Page {
                 message:
                     'Pilihan daftar ulang akan tampil saat pendaftaran dibuka.'),
           for (final p in programs)
-            group(val(p['nama']), [
+            panel(val(p['nama']), [
               if (klaim)
-                tile(
-                    'Rp 0',
-                    fields(p, [
-                      'durasiBulanFormatted',
-                      'tglProgramFormatted'
-                    ]))
+                tile('Rp 0',
+                    fields(p, ['durasiBulanFormatted', 'tglProgramFormatted']))
               else if (_hargaDiskon(p) != null) ...[
                 tile(_rp(_hargaDiskon(p)),
                     fields(p, ['durasiBulanFormatted', 'tglProgramFormatted'])),
@@ -327,7 +350,7 @@ extension _Services on _Page {
               ] else
                 tile(p['hargaFormatted'],
                     fields(p, ['durasiBulanFormatted', 'tglProgramFormatted'])),
-              action('Pilih program', () async {
+              primary('Pilih program', () async {
                 final attr = klaim
                     ? '0'
                     : await choose('Atribut', [
@@ -365,17 +388,33 @@ extension _Services on _Page {
                     'Sesi dan kandidat akan tampil ketika pemilihan dibuka.')
           ];
         return [
-          tile(s['judul'], fields(s, ['dufahNama', 'status'])),
+          panel(val(s['judul']), [],
+              subtitle: val(s['dufahNama']),
+              badge: badge(s['status']),
+              tinted: true),
           if (data['sudahMemilih'] == true) tile('Suara Anda sudah tercatat.'),
           for (final p in rows(data['paslon']))
-            group(
+            panel(
                 'Paslon ${p['nomorUrut']} · ${val(obj(p['santri1'])['nama'])}',
                 [
-                  tile(obj(p['santri2'])['nama'], p['visiMisi']),
+                  Text(val(obj(p['santri2'])['nama'])),
+                  if (p['fotoUrl'] != null)
+                    Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(val(p['fotoUrl']),
+                                height: 160,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox(
+                                    height: 48,
+                                    child: Icon(Icons.people_outline))))),
+                  group('Visi dan misi', [Text(val(p['visiMisi']))]),
                   tile('Suara', p['suara']),
-                  if (data['bolehMemilih'] == true &&
+                  if (s['status'] == 'BUKA' &&
+                      data['bolehMemilih'] == true &&
                       data['sudahMemilih'] != true)
-                    action('Pilih paslon ini', () => vote(s, p))
+                    primary('Pilih paslon ini', () => vote(s, p))
                 ])
         ];
       case 'Galeri':
@@ -393,11 +432,35 @@ extension _Services on _Page {
                 title: 'Belum ada album',
                 message: 'Coba pilih periode lainnya.'),
           for (final g in rows(data['data']))
-            ListTile(
-                title: Text(val(g['judul'])),
-                subtitle: Text(date(g['createdAt'])),
-                trailing: const Icon(Icons.photo_library_outlined),
-                onTap: () => run(() => external(g['driveUrl'])))
+            Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                          height: 90,
+                          color: MarkazColors.tint,
+                          child: const Icon(Icons.photo_library_outlined,
+                              size: 36)),
+                      Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(val(g['judul']),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium),
+                                const SizedBox(height: 6),
+                                Text(
+                                    '${val(g['dufahNama'] ?? data['dufahNama'])} • ${date(g['createdAt'])}',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall),
+                                primary('Buka di Google Drive',
+                                    () => external(val(g['driveUrl'])),
+                                    icon: Icons.open_in_new),
+                              ])),
+                    ]))
         ];
       case 'Denah Sakan':
         final places = rows(data['data']);
@@ -435,84 +498,121 @@ extension _Services on _Page {
                     const SimpleAttributionWidget(
                         source: Text('OpenStreetMap contributors'))
                   ])),
-          for (final p in places)
+          section('Lokasi sakan',
+              subtitle: 'Ketuk nama untuk menampilkan lokasi di peta.'),
+          TextField(
+              decoration: const InputDecoration(
+                  labelText: 'Cari lokasi', prefixIcon: Icon(Icons.search)),
+              onChanged: (value) => updateView(() => searchQuery = value)),
+          if (places
+              .where((p) => val(p['nama'])
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()))
+              .isEmpty)
+            const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Lokasi tidak ditemukan.')),
+          for (final p in places.where((p) =>
+              val(p['nama']).toLowerCase().contains(searchQuery.toLowerCase())))
             ListTile(
                 title: Text(val(p['nama'])),
                 subtitle: Text(val(p['deskripsi'])),
-                trailing: const Icon(Icons.directions_walk),
-                onTap: () => run(() async {
-                      var perm = await Geolocator.checkPermission();
-                      if (perm == LocationPermission.denied)
-                        perm = await Geolocator.requestPermission();
-                      if (perm == LocationPermission.denied ||
-                          perm == LocationPermission.deniedForever)
-                        throw const PortalError(
-                            'Izinkan lokasi untuk melihat rute.');
-                      final pos = await Geolocator.getCurrentPosition();
-                      final dst = point(p);
-                      final uri = Uri.https(
-                          'router.project-osrm.org',
-                          '/route/v1/foot/${pos.longitude},${pos.latitude};${dst.longitude},${dst.latitude}',
-                          {'overview': 'full', 'geometries': 'geojson'});
-                      final response = await http
-                          .get(uri)
-                          .timeout(const Duration(seconds: 15));
-                      final routes = rows(jsonDecode(response.body)['routes']);
-                      if (routes.isEmpty)
-                        throw const PortalError('Rute belum tersedia.');
-                      final points = [
-                        for (final pt in routes.first['geometry']
-                            ['coordinates'])
-                          LatLng((pt[1] as num).toDouble(),
-                              (pt[0] as num).toDouble())
-                      ];
-                      if (mounted && points.isNotEmpty) {
-                        updateRoute(points);
-                        map.fitCamera(CameraFit.bounds(
-                            bounds: LatLngBounds.fromPoints(points),
-                            padding: const EdgeInsets.all(30)));
-                      }
-                    }))
+                onTap: () => map.move(point(p), 17),
+                trailing: IconButton(
+                    tooltip: 'Rute ke ${val(p['nama'])}',
+                    icon: const Icon(Icons.directions_walk),
+                    onPressed: () => run(() async {
+                          var perm = await Geolocator.checkPermission();
+                          if (perm == LocationPermission.denied)
+                            perm = await Geolocator.requestPermission();
+                          if (perm == LocationPermission.denied ||
+                              perm == LocationPermission.deniedForever)
+                            throw const PortalError(
+                                'Izinkan lokasi untuk melihat rute.');
+                          final pos = await Geolocator.getCurrentPosition();
+                          final dst = point(p);
+                          final uri = Uri.https(
+                              'router.project-osrm.org',
+                              '/route/v1/foot/${pos.longitude},${pos.latitude};${dst.longitude},${dst.latitude}',
+                              {'overview': 'full', 'geometries': 'geojson'});
+                          final response = await http
+                              .get(uri)
+                              .timeout(const Duration(seconds: 15));
+                          final routes =
+                              rows(jsonDecode(response.body)['routes']);
+                          if (routes.isEmpty)
+                            throw const PortalError('Rute belum tersedia.');
+                          final points = [
+                            for (final pt in routes.first['geometry']
+                                ['coordinates'])
+                              LatLng((pt[1] as num).toDouble(),
+                                  (pt[0] as num).toDouble())
+                          ];
+                          if (mounted && points.isNotEmpty) {
+                            updateRoute(points);
+                            map.fitCamera(CameraFit.bounds(
+                                bounds: LatLngBounds.fromPoints(points),
+                                padding: const EdgeInsets.all(30)));
+                          }
+                        })))
         ];
       case 'Tasmi’':
+        final items = rows(data['items']);
         return [
-          for (final t in rows(data['items']))
-            group('Juz ${t['juz']} · ${date(t['tanggal'])}', [
-              tile(
-                  fields(t, [
+          statistics([
+            ('Total sesi Tasmi’', data['total'] ?? items.length),
+            ('Juz terakhir', obj(data['terakhir'])['juz'])
+          ]),
+          section('Hasil penilaian'),
+          if (items.isEmpty)
+            const MarkazState(
+                title: 'Belum ada hasil Tasmi’',
+                message: 'Hasil tampil setelah penilai mencatat sesi Anda.'),
+          for (final t in items)
+            panel(
+                'Juz ${val(t['juz'])}',
+                [
+                  Text(fields(t, [
                     'surahNama',
                     'ayatDari',
                     'surahSampaiNama',
                     'ayatSampai'
+                  ])),
+                  const SizedBox(height: 12),
+                  statistics([
+                    ('Tahfidz', t['nilaiTahfidz']),
+                    ('Tahsin', t['nilaiTahsin']),
+                    ('Tartil', t['nilaiTartil']),
+                    ('Adab', t['nilaiAdab'])
                   ]),
-                  t['catatan']),
-              for (final k in [
-                'nilaiTahfidz',
-                'nilaiTahsin',
-                'nilaiTartil',
-                'nilaiAdab',
-                'rataRata'
-              ])
-                tile(k, null, t[k])
-            ])
+                  tile('Rata-rata', null, t['rataRata']),
+                  if (t['catatan'] != null)
+                    Text('Catatan penguji: ${t['catatan']}'),
+                ],
+                subtitle: date(t['tanggal']))
         ];
       case 'Nadi Hufadz':
         return [
-          tile(
+          panel(
               data['sudahDaftar'] == true
                   ? 'Sudah terdaftar'
                   : data['pendaftaranDibuka'] == true
                       ? 'Pendaftaran dibuka'
                       : 'Pendaftaran ditutup',
-              data['dufahAktif']),
+              [Text(val(data['dufahAktif']))],
+              tinted: true),
           if (data['sudahDaftar'] != true && data['pendaftaranDibuka'] == true)
-            action('Daftar Nadi Hufadz', () async {
+            primary('Daftar Nadi Hufadz', () async {
               if (await confirm('Daftar Nadi Hufadz?', val(data['dufahAktif'])))
                 await send(endpoint, {});
             }),
           for (final r in rows(data['riwayat']))
-            group(val(r['dufahNama']), [
+            panel(val(r['dufahNama']), [
               tile('Kehadiran', r['kehadiran']),
+              section('Catatan setoran harian',
+                  subtitle: '${rows(r['setoran']).length} setoran tercatat'),
+              if (rows(r['setoran']).isEmpty)
+                const Text('Belum ada setoran pada periode ini.'),
               for (final t in rows(r['setoran']))
                 tile(fields(t, ['surat', 'ayat']),
                     fields(t, ['tanggal', 'penyimak', 'catatan'])),
@@ -524,32 +624,50 @@ extension _Services on _Page {
             ])
         ];
       case 'Berita Acara':
+        final records = rows(obj(data['data'])['absenList']);
+        final pending =
+            records.where((a) => obj(a['beritaAcara']).isEmpty).length;
+        final visible = records
+            .where((a) =>
+                recordFilter == 'Semua' ||
+                (recordFilter == 'Belum diisi'
+                    ? obj(a['beritaAcara']).isEmpty
+                    : obj(a['beritaAcara']).isNotEmpty))
+            .toList();
         return [
-          for (final a in rows(obj(data['data'])['absenList']))
-            group(val(obj(a['user'])['nama']), [
-              tile(date(a['tanggal']), a['materi']),
-              action('Isi berita acara', () async {
-                final st = await choose('Kehadiran pengajar',
-                    [('1', 'Hadir'), ('0', 'Tidak hadir')]);
-                if (st == null) return;
-                final mins = st == '1'
-                    ? await ask('Menit terlambat', initial: '0')
-                    : '0';
-                if (mins == null || int.tryParse(mins) == null) return;
-                final note = await ask('Catatan berita acara');
-                if (note != null)
-                  await send(endpoint, {
-                    'absenPengajarId': a['id'],
-                    'konfirmasiHadir': st == '1',
-                    'catatan': note,
-                    'terlambatMenit': int.parse(mins)
-                  });
-              })
-            ])
+          statistics([
+            ('Belum diisi', pending),
+            ('Sudah diisi', records.length - pending)
+          ]),
+          filters(['Semua', 'Belum diisi', 'Sudah diisi']),
+          if (visible.isEmpty)
+            const MarkazState(
+                title: 'Tidak ada catatan pada pilihan ini',
+                message: 'Pilih status lain untuk melihat berita acara.'),
+          for (final a in visible)
+            panel(
+                val(obj(a['user'])['nama']),
+                [
+                  Text('Materi: ${val(a['materi'])}'),
+                  if (obj(a['beritaAcara']).isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    badge(obj(a['beritaAcara'])['konfirmasiHadir'] == true
+                        ? 'Hadir'
+                        : 'Tidak hadir'),
+                    tile('Catatan', obj(a['beritaAcara'])['catatan']),
+                  ],
+                  FilledButton.icon(
+                      onPressed: working ? null : () => beritaForm(a),
+                      icon: const Icon(Icons.edit_note),
+                      label: Text(obj(a['beritaAcara']).isEmpty
+                          ? 'Isi berita acara'
+                          : 'Ubah berita acara')),
+                ],
+                subtitle: '${date(a['tanggal'])} • ${readable(a['sesi'])}')
         ];
       case 'Lapor Mukholif':
         return [
-          action('Buat laporan', () async {
+          primary('Buat laporan', () async {
             await Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -568,14 +686,42 @@ extension _Services on _Page {
             const MarkazState(
                 title: 'Belum ada laporan',
                 message: 'Laporan yang sudah dikirim akan tampil di sini.'),
+          section('Laporan terkirim',
+              subtitle: '${rows(data['laporanList']).length} laporan'),
           for (final r in rows(data['laporanList']))
-            tile(r['tempatMelanggar'],
-                fields(r, ['perkataanYgDiucapkan', 'detailKejadian']))
+            panel(
+                val(r['tempatMelanggar']),
+                [
+                  Text(fields(r, ['perkataanYgDiucapkan', 'detailKejadian'])),
+                  if (r['status'] != null)
+                    Align(
+                        alignment: Alignment.centerLeft,
+                        child: badge(r['status'])),
+                ],
+                subtitle: date(r['waktuMelanggar']))
         ];
       case 'Eksekusi Iqob':
         return [
+          section('Tugas yang perlu diselesaikan',
+              subtitle: '${rows(data).length} santri'),
+          if (rows(data).isEmpty)
+            const MarkazState(
+                title: 'Tidak ada tugas iqob',
+                message:
+                    'Tugas yang memerlukan tindak lanjut akan tampil di sini.'),
           for (final p in rows(data))
-            group(val(p['santriNama']), [
+            panel(val(p['santriNama']), [
+              Text(fields(p, ['santriAsrama', 'santriKelas']),
+                  style: Theme.of(context).textTheme.bodySmall),
+              tile(
+                  'Tanggal laporan', date(obj(p['laporan'])['waktuMelanggar'])),
+              for (final k in ['Sounding', 'Jawal', 'Penyetoran'])
+                if (p['iqob$k'] == true && p['iqob${k}Done'] == true)
+                  ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.check_circle_outline,
+                          color: MarkazColors.success),
+                      title: Text('$k selesai')),
               for (final k in ['Sounding', 'Jawal', 'Penyetoran'])
                 if (p['iqob$k'] == true && p['iqob${k}Done'] != true)
                   action('Selesaikan $k', () async {
@@ -589,8 +735,9 @@ extension _Services on _Page {
         ];
       case 'Tauzi’ Fushul':
         return [
-          tile('Program tujuan',
-              obj(obj(data['riwayat'])['program'])['nama_indo']),
+          panel('1. Program tujuan',
+              [Text(val(obj(obj(data['riwayat'])['program'])['nama_indo']))],
+              tinted: true),
           action('Pilih program tujuan', () async {
             final v = await choose('Program', [
               for (final p in rows(data['programs']))
@@ -598,25 +745,24 @@ extension _Services on _Page {
             ]);
             if (v != null) await send(endpoint, {'programId': v});
           }),
-          action('Kerjakan tes penempatan', () async {
+          section('2. Tes penempatan'),
+          primary('Kerjakan tes penempatan', () async {
             await get('/api/tauzi/auth/login', body: {'nis': user['id']});
             final d = await get('/api/tauzi/soal');
             await exam(obj(d), true);
           }),
+          section('3. Hasil penempatan'),
           action('Hasil tes penempatan', () async {
             await get('/api/tauzi/auth/login', body: {'nis': user['id']});
             final d = await get('/api/tauzi/hasil');
             if (mounted)
-              await showModalBottomSheet(
-                  context: context,
-                  useSafeArea: true,
-                  builder: (_) =>
-                      ListView(padding: const EdgeInsets.all(18), children: [
-                        tile('Nilai tahriri', d['nilaiTahriri']),
-                        for (final q in rows(d['breakdown']))
-                          tile(q['pertanyaan'],
-                              q['isCorrect'] == true ? 'Benar' : 'Salah')
-                      ]));
+              await detailSheet('Hasil tes penempatan', [
+                statistics([('Nilai tahriri', d['nilaiTahriri'])]),
+                section('Rincian jawaban'),
+                for (final q in rows(d['breakdown']))
+                  tile(q['pertanyaan'],
+                      q['isCorrect'] == true ? 'Benar' : 'Salah'),
+              ]);
           })
         ];
       default:

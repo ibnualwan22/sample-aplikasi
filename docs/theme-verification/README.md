@@ -58,3 +58,7 @@ Jalankan ulang dengan `flutter test`. Untuk memperbarui gambar: `flutter test --
 - Bacaan dan cache Mushaf, peta/rute, konten Instagram pihak ketiga, PDF/cetak/simpan, serta semua overlay pada data panjang dari server.
 
 Permukaan aplikasi mengikuti tema; isi PDF, foto, peta dan halaman eksternal tetap mengikuti sumbernya. Kotak tahap 3–7 pada rencana belum ditandai penuh karena tahap tersebut juga mensyaratkan pemeriksaan perangkat dan alur produksi di atas. Hal ini tidak berarti layar tersebut masih menggunakan tema lama.
+
+## UI/UX menu SIAKAD
+
+Pembenahan isi layar setelah tahap tema dan ikon dicatat terpisah dalam [laporan UI/UX SIAKAD](siakad-ui.md). Laporan memuat screenshot setiap halaman yang dirender dengan data contoh, perubahan interaksi dan batas pemeriksaan.

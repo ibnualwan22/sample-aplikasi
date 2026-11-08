@@ -37,17 +37,47 @@ const fixture = <String, dynamic>{
       'average': 84,
       'statusKelulusan': 'Lulus',
       'nilaiRows': [
-        {'namaIndo': 'Nahwu', 'nilaiUsbu1': 80, 'nilaiUsbu2': 82, 'nilaiNihai': 86, 'skor': 83}
+        {
+          'namaIndo': 'Nahwu',
+          'nilaiUsbu1': 80,
+          'nilaiUsbu2': 82,
+          'nilaiNihai': 86,
+          'skor': 83
+        }
       ],
-      'rekapAbsenKelas': {'hadir': 18, 'izin': 1, 'sakit': 0, 'alpha': 1, 'total': 20},
+      'rekapAbsenKelas': {
+        'hadir': 18,
+        'izin': 1,
+        'sakit': 0,
+        'alpha': 1,
+        'total': 20
+      },
       'absenKelas': [
         {'tanggal': '2026-11-07', 'sesi': 'Pagi', 'status': 'HADIR'}
       ],
-      'rekapAbsenSakan': {'hadir': 20, 'izin': 0, 'sakit': 0, 'alpha': 0, 'total': 20},
+      'rekapAbsenSakan': {
+        'hadir': 20,
+        'izin': 0,
+        'sakit': 0,
+        'alpha': 0,
+        'total': 20
+      },
       'absenSakan': [],
-      'rekapAbsenKegiatan': {'hadir': 9, 'izin': 1, 'sakit': 0, 'alpha': 0, 'total': 10},
+      'rekapAbsenKegiatan': {
+        'hadir': 9,
+        'izin': 1,
+        'sakit': 0,
+        'alpha': 0,
+        'total': 10
+      },
       'absenKegiatan': [],
-      'rekapAbsenTabirot': {'hadir': 8, 'izin': 0, 'sakit': 1, 'alpha': 1, 'total': 10},
+      'rekapAbsenTabirot': {
+        'hadir': 8,
+        'izin': 0,
+        'sakit': 1,
+        'alpha': 1,
+        'total': 10
+      },
       'absenTabirot': [],
     }
   ],
@@ -64,20 +94,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await initializeDateFormatting('id_ID');
     dotenv.testLoad(fileInput: '');
-  });
-  testWidgets('Capture updated SIAKAD attendance, grades and history screens', (t) async {
-    t.view.physicalSize = const Size(390, 844);
-    t.view.devicePixelRatio = 1;
-    addTearDown(t.view.resetPhysicalSize);
-    addTearDown(t.view.resetDevicePixelRatio);
-    for (final (name, file) in [('Absensi', 'siakad-absensi'), ('Nilai', 'siakad-nilai'), ('Riwayat', 'siakad-riwayat')]) {
-      await t.pumpWidget(app(Scaffold(appBar: AppBar(title: Text(name)), body: FeaturePage(
-        name: name, me: fixture, api: CoverageApi(), onChanged: () async {}))));
-      await t.pumpAndSettle();
-      if (const bool.fromEnvironment('CAPTURE_THEME')) await screenshot(t, file);
-      expect(t.takeException(), isNull, reason: name);
-      await t.pumpWidget(const SizedBox());
-    }
   });
   testWidgets(
       'All 19 catalog features and account render at 320dp / 200%, with error recovery',

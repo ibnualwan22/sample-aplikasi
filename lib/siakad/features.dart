@@ -21,6 +21,7 @@ import 'exam.dart';
 import 'scan.dart';
 import 'file_view.dart';
 part 'services.dart';
+part 'feature_views.dart';
 
 class FeaturePage extends StatefulWidget {
   const FeaturePage(
@@ -40,6 +41,11 @@ class FeaturePage extends StatefulWidget {
 }
 
 class _Page extends State<FeaturePage> {
+  String? selectedPeriod;
+  String attendanceCategory = 'Kelas';
+  String recordFilter = 'Semua';
+  String searchQuery = '';
+  void updateView(VoidCallback change) => setState(change);
   List<LatLng> route = [];
   void updateRoute(List<LatLng> points) => setState(() => route = points);
   final map = MapController();
@@ -252,6 +258,10 @@ class _Page extends State<FeaturePage> {
                     child: TextFormField(
                         initialValue: initial,
                         autofocus: true,
+                        maxLines: label.contains('alasan') ||
+                                label.contains('catatan')
+                            ? 4
+                            : 1,
                         keyboardType: numeric
                             ? TextInputType.number
                             : label.contains('whatsapp')
@@ -289,9 +299,7 @@ class _Page extends State<FeaturePage> {
           showDragHandle: true,
           builder: (c) => SafeArea(
                   child: ListView(shrinkWrap: true, children: [
-                ListTile(
-                    title:
-                        Text(title, style: Theme.of(c).textTheme.titleLarge)),
+                ListTile(title: MarkazDialogTitle(title, icon: Icons.tune)),
                 if (options.isEmpty)
                   const Padding(
                       padding: EdgeInsets.all(24),
@@ -332,22 +340,12 @@ class _Page extends State<FeaturePage> {
       .where((k) => m[k] != null && m[k] != '')
       .map((k) => val(m[k]))
       .join(' · ');
-  String date(dynamic v) => v == null ? '—' : v.toString().split('T').first;
-  Widget _metric(String label, dynamic value, {Color? color}) => Expanded(
-      child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Column(children: [
-            Text(val(value),
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: color ?? MarkazColors.ink)),
-            const SizedBox(height: 4),
-            Text(label,
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 11, color: MarkazColors.muted)),
-          ])));
+  String date(dynamic v) {
+    final parsed = DateTime.tryParse(val(v));
+    return parsed == null
+        ? val(v)
+        : DateFormat('d MMM yyyy', 'id_ID').format(parsed);
+  }
 
   Widget _featureLead() {
     final content = <String, (IconData, String, String)>{
@@ -455,44 +453,6 @@ class _Page extends State<FeaturePage> {
     );
   }
 
-  Widget _attendance(Json h, String category, String label) {
-    final summary = obj(h['rekapAbsen$category']);
-    final entries = rows(h['absen$category']);
-    final total = int.tryParse(val(summary['total'])) ?? entries.length;
-    final attended = summary['hadir'] ??
-        entries.where((a) => val(a['status']).toUpperCase() == 'HADIR').length;
-    return Card(
-        child: ExpansionTile(
-      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(
-          '$attended hadir · ${summary['alpha'] ?? summary['alpa'] ?? 0} alpa · ${summary['izin'] ?? 0} izin · ${summary['sakit'] ?? 0} sakit\n$total sesi tercatat'),
-      children: [
-        Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(children: [
-              _metric('Hadir', summary['hadir'] ?? 0),
-              _metric('Alpa', summary['alpha'] ?? summary['alpa'] ?? 0,
-                  color: MarkazColors.danger),
-              _metric('Izin', summary['izin'] ?? 0),
-              _metric('Sakit', summary['sakit'] ?? 0),
-            ])),
-        if (entries.isEmpty)
-          const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Belum ada catatan absensi pada kategori ini.',
-                  style: TextStyle(color: MarkazColors.muted)))
-        else
-          for (final a in entries)
-            tile(
-                date(a['tanggal']),
-                fields(
-                    a, ['sesi', 'namaKegiatan', 'namaKelompok', 'keterangan']),
-                a['status']),
-      ],
-    ));
-  }
-
   Widget group(String title, List<Widget> cs) => Card(
       child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -563,177 +523,26 @@ class _Page extends State<FeaturePage> {
   List<Widget> content() {
     switch (name) {
       case 'Absensi':
-        if (history.isEmpty)
-          return [
-            const MarkazState(
-                title: 'Belum ada data absensi',
-                message:
-                    'Rekap hadir, alpa, izin, dan sakit akan tampil di sini.')
-          ];
-        return [
-          Text(
-              'Rekap per periode dan kategori absensi. Ketuk kategori untuk melihat catatan tanggalnya.',
-              style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 12),
-          for (final h in history) ...[
-            Padding(
-                padding: const EdgeInsets.only(top: 16, bottom: 6),
-                child: Text(
-                    fields(h, ['dufahNama', 'programNama', 'kelasNama']),
-                    style: Theme.of(context).textTheme.titleMedium)),
-            _attendance(h, 'Kelas', 'Absensi kelas'),
-            _attendance(h, 'Sakan', 'Absensi sakan'),
-            _attendance(h, 'Kegiatan', 'Absensi kegiatan'),
-            _attendance(h, 'Tabirot', 'Absensi ta’birot'),
-          ]
-        ];
+        return attendanceView();
       case 'Nilai':
-        if (history.isEmpty)
-          return [
-            const MarkazState(
-                title: 'Belum ada data nilai',
-                message: 'Nilai akan ditampilkan setelah diterbitkan.')
-          ];
-        return [
-          Text(
-              'Pilih periode untuk melihat hasil belajar dan rincian mata pelajaran.',
-              style: Theme.of(context).textTheme.bodySmall),
-          for (final h in history) ...[
-            const SizedBox(height: 12),
-            Card(
-                child: ExpansionTile(
-              initiallyExpanded: history.first == h,
-              title: Text(val(h['dufahNama']),
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(fields(h, ['programNama', 'kelasNama'])),
-              children: [
-                Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(children: [
-                      _metric('Rata-rata', h['average'] ?? '—'),
-                      Expanded(
-                          child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: Column(children: [
-                                const Text('Status',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: MarkazColors.muted)),
-                                Text(
-                                    (h['statusKelulusan'] == null
-                                        ? 'Belum tersedia'
-                                        : val(h['statusKelulusan'])),
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600))
-                              ]))),
-                    ])),
-                for (final n in rows(h['nilaiRows']))
-                  ListTile(
-                      title: Text(val(n['namaIndo'])),
-                      subtitle: Text(
-                          'Usbu 1: ${val(n['nilaiUsbu1'])} · Usbu 2: ${val(n['nilaiUsbu2'])} · Nihai: ${val(n['nilaiNihai'])}'),
-                      trailing: Text(val(n['skor']),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700))),
-                if (h['transkripGabungan'] != null)
-                  for (final n in rows(h['transkripGabungan']['nilaiRows']))
-                    tile(n['namaIndo'], null, n['skor']),
-                action('Lihat transkrip nilai',
-                    () => document('transkrip', h['id']),
-                    icon: Icons.description_outlined),
-                if (h['canDownloadSyahadah'] == true)
-                  action('Lihat syahadah', () => document('syahadah', h['id']),
-                      icon: Icons.download_outlined),
-              ],
-            )),
-          ]
-        ];
+        return gradesView();
       case 'Riwayat':
-        if (history.isEmpty)
-          return [
-            const MarkazState(
-                title: 'Belum ada riwayat akademik',
-                message: 'Riwayat program akan tampil di sini saat tersedia.')
-          ];
-        return [
-          Text('Perjalanan belajar berdasarkan periode yang tercatat.',
-              style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 12),
-          for (var i = 0; i < history.length; i++) ...[
-            Card(
-                child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                    width: 36,
-                                    height: 36,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                        color: MarkazColors.gold,
-                                        borderRadius:
-                                            BorderRadius.circular(18)),
-                                    child: Text('${history.length - i}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700))),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                      Text(val(history[i]['dufahNama']),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                          fields(history[i],
-                                              ['programNama', 'kelasNama']),
-                                          style: const TextStyle(
-                                              color: MarkazColors.muted))
-                                    ])),
-                              ]),
-                          const Divider(height: 24),
-                          Wrap(spacing: 20, runSpacing: 8, children: [
-                            Text(
-                                'Rata-rata: ${val(history[i]['average'], fallback: '—')}'),
-                            Text(
-                                'Kelulusan: ${val(history[i]['statusKelulusan'], fallback: '—')}')
-                          ]),
-                          if (history[i]['canDownloadSyahadah'] == true)
-                            Align(
-                                alignment: Alignment.centerLeft,
-                                child: TextButton.icon(
-                                    onPressed: () => run(() =>
-                                        document('syahadah', history[i]['id'])),
-                                    icon: const Icon(
-                                        Icons.workspace_premium_outlined),
-                                    label: const Text('Lihat syahadah'))),
-                          if (history[i]['transkripGabungan'] != null)
-                            const Text('Transkrip gabungan tersedia',
-                                style: TextStyle(
-                                    color: MarkazColors.muted, fontSize: 12)),
-                        ]))),
-          ]
-        ];
+        return historyView();
       case 'Hasil Tes':
         return [
-          tile('Periode', data['active_dufah']),
+          panel('Periode hasil tes', [Text(val(data['active_dufah']))],
+              tinted: true),
           if (rows(data['data']).isEmpty)
             const MarkazState(
                 title: 'Belum ada hasil tes',
                 message: 'Hasil akan tampil setelah nilai diterbitkan.'),
           for (final k in rows(data['data']))
             for (final s in rows(k['santri'])) ...[
-              for (final u in rows(s['rata_rata_per_usbu']))
-                tile(u['label'], null, u['rata_rata_nilai'] ?? '—'),
+              statistics([
+                for (final u in rows(s['rata_rata_per_usbu']))
+                  (val(u['label']), u['rata_rata_nilai'])
+              ]),
+              section('Hasil per mata pelajaran'),
               for (final n in rows(s['nilai_per_mapel']))
                 tile(
                     n['mapel'],
@@ -743,13 +552,21 @@ class _Page extends State<FeaturePage> {
         ];
       case 'QR Saya':
         return [
-          tile(user['nama'], 'Tunjukkan QR ini kepada petugas absensi.'),
-          Center(
-              child: QrImageView(
-                  data: data['payload'],
-                  size: 240,
-                  backgroundColor: Colors.white)),
-          action('Mode scan', () async {
+          panel(val(user['nama']), [
+            Text('NIS ${val(user['id'])}', textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            if (val(data['payload']) != '—')
+              Center(
+                  child: LayoutBuilder(
+                      builder: (_, box) => QrImageView(
+                          data: val(data['payload']),
+                          size: box.maxWidth < 240 ? box.maxWidth : 240,
+                          backgroundColor: Colors.white)))
+            else
+              const Text(
+                  'QR belum tersedia. Tarik halaman untuk memuat ulang.'),
+          ]),
+          primary('Mode scan', () async {
             final status = await get('qr-saya/status');
             if (!mounted) return;
             await Navigator.push(
@@ -763,17 +580,31 @@ class _Page extends State<FeaturePage> {
                             .toSet())));
             if (mounted) await load();
           }, icon: Icons.qr_code_scanner),
-          for (final a in rows(extra['hadir'])) tile(a['kategoriNama'], 'Hadir')
+          section('Kehadiran terkonfirmasi'),
+          if (rows(extra['hadir']).isEmpty)
+            const Text(
+                'Belum ada konfirmasi kehadiran. Status akan diperbarui setelah dipindai.'),
+          for (final a in rows(extra['hadir']))
+            ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.check_circle_outline,
+                    color: MarkazColors.success),
+                title: Text(val(a['kategoriNama'])),
+                subtitle: const Text('Hadir'))
         ];
       case 'Akun':
         return [
-          tile(user['nama'], 'NIS ${user['id']}'),
+          panel(val(user['nama']), [Text('NIS ${val(user['id'])}')],
+              badge: badge(user['isAktif'] == true ? 'Aktif' : 'Tidak aktif'),
+              tinted: true),
+          section('Tempat tinggal'),
           tile('Sakan dan kamar', fields(user, ['sakan', 'kamar'])),
           tile('Nomor lemari', user['nomorLemari']),
+          section('Identitas santri'),
           tile('Tempat dan tanggal lahir',
               fields(user, ['tempatLahir', 'tanggalLahir'])),
           tile('Alamat', user['alamat']),
-          tile('Status', user['isAktif'] == true ? 'Aktif' : 'Tidak aktif'),
+          section('Masa belajar dan kartu'),
           tile(
               'Masa aktif',
               adjustDufahName(val(obj(
@@ -828,13 +659,31 @@ class _Page extends State<FeaturePage> {
           })
         ];
       case 'Ujian':
+        final exams = rows(data);
+        final visible = exams
+            .where((u) =>
+                recordFilter == 'Semua' ||
+                (recordFilter == 'Dapat dikerjakan'
+                    ? ['BELUM_MULAI', 'MENGERJAKAN'].contains(u['status'])
+                    : !['BELUM_MULAI', 'MENGERJAKAN'].contains(u['status'])))
+            .toList();
         return [
-          for (final u in rows(data))
-            group(val(u['nama']), [
-              tile(val(u['status']),
-                  "${u['jumlahSoal']} soal · ${u['durasiMenit']} menit"),
+          filters(['Semua', 'Dapat dikerjakan', 'Lainnya']),
+          if (visible.isEmpty)
+            const MarkazState(
+                title: 'Tidak ada ujian pada pilihan ini',
+                message:
+                    'Ujian dan hasil akan muncul sesuai jadwal yang ditetapkan.'),
+          for (final u in visible)
+            panel(val(u['nama']), [
+              Align(alignment: Alignment.centerLeft, child: badge(u['status'])),
+              tile('${val(u['jumlahSoal'])} soal',
+                  '${val(u['durasiMenit'])} menit'),
               if (['BELUM_MULAI', 'MENGERJAKAN'].contains(u['status']))
-                action('Buka ujian', () async {
+                primary(
+                    u['status'] == 'MENGERJAKAN'
+                        ? 'Lanjutkan ujian'
+                        : 'Mulai ujian', () async {
                   final kode = await ask('Kode akses ujian');
                   if (kode != null) {
                     final d = await get('ujian/start',

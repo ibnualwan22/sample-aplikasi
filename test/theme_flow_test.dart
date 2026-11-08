@@ -29,8 +29,12 @@ Widget app(Widget page, {double scale = 1}) => RepaintBoundary(child: MaterialAp
     home: page));
 
 Future<void> screenshot(WidgetTester t, String name) async {
-  await t.pump();
   if (!const bool.fromEnvironment('CAPTURE_THEME')) return;
+  // Refresh retained layers before offscreen capture across several scenes.
+  for (final render in t.allRenderObjects) {
+    render.markNeedsPaint();
+  }
+  await t.pump();
   await t.runAsync(() async {
     final boundary = t.firstRenderObject<RenderRepaintBoundary>(
         find.byType(RepaintBoundary).first);

@@ -191,7 +191,8 @@ ThemeData markazTheme() {
     chipTheme: ChipThemeData(
         backgroundColor: MarkazColors.ivory,
         selectedColor: c,
-        labelStyle: const TextStyle(color: MarkazColors.ink),
+        labelStyle:
+            const TextStyle(fontFamily: 'Roboto', color: MarkazColors.ink),
         side: const BorderSide(color: MarkazColors.line),
         shape: rounded),
     checkboxTheme: CheckboxThemeData(
