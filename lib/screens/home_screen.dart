@@ -2,6 +2,8 @@ import '../widgets/prayer_schedule_sheet.dart';
 import '../widgets/markaz_components.dart';
 import 'calendar_screen.dart';
 import '../theme/markaz_theme.dart';
+import '../siakad/api.dart';
+import '../siakad/features.dart';
 import '../siakad/prayer.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -40,10 +42,14 @@ const kTextSec = MarkazColors.muted;
 class HomeScreen extends StatefulWidget {
   const HomeScreen(
       {super.key,
+      this.santriLoggedIn = false,
       this.onOpenSiakad,
       this.onOpenResults,
       this.onOpenCalendar,
       this.onOpenQuran});
+  // Diisi MainLayout dari status login portal SIAKAD; dipakai untuk
+  // memuat ulang kartu santri saat login/logout lewat portal.
+  final bool santriLoggedIn;
   final VoidCallback? onOpenSiakad, onOpenResults, onOpenCalendar, onOpenQuran;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -67,6 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _shorebirdUpdater = ShorebirdUpdater();
 
+  // Dibuat malas di _loadSantri: konstruktor SantriApi membaca dotenv,
+  // yang belum tentu siap saat State dibuat (mis. di tes widget).
+  SantriApi? _santriApi;
+  Json? _santriMe;
+  Json? _santriStatus;
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     });
     _checkForUpdates();
+    _loadSantri();
 
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
@@ -276,6 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _santriApi?.dispose();
     prayerInfo.value = (
       clock: prayerInfo.value.clock,
       location: prayerInfo.value.location,
@@ -285,6 +299,142 @@ class _HomeScreenState extends State<HomeScreen> {
       schedule: null
     );
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.santriLoggedIn && !old.santriLoggedIn) {
+      _loadSantri();
+    } else if (!widget.santriLoggedIn && old.santriLoggedIn) {
+      setState(() {
+        _santriMe = null;
+        _santriStatus = null;
+      });
+    }
+  }
+
+  /// Data santri untuk kartu masa aktif di Beranda. Memakai sesi SIAKAD
+  /// yang tersimpan (sama seperti portal); gagal apa pun → kartu tak tampil.
+  Future<void> _loadSantri() async {
+    try {
+      final api = _santriApi ??= SantriApi();
+      if (!await api.restore()) return;
+      final me = obj(await api.call('/api/santri/me'));
+      if (me['santri'] == null) return;
+      Json? status;
+      try {
+        status = obj(await api.call('/api/santri/me/status'));
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _santriMe = me;
+        _santriStatus = status;
+      });
+    } catch (_) {}
+  }
+
+  String? get _santriNama {
+    if (_santriMe == null) return null;
+    final n = val(obj(_santriMe?['santri'])['nama']);
+    return n == '—' ? null : n;
+  }
+
+  /// Program.kategori riwayat berjalan (fallback: flag menu portal).
+  String? get _lembagaKategori {
+    final riwayat = rows(_santriMe?['riwayat']);
+    if (riwayat.isNotEmpty) {
+      final k = val(riwayat.first['programKategori']);
+      if (k != '—' && k.isNotEmpty) return k;
+    }
+    final menu = obj(_santriMe?['menu']);
+    if (menu['isTurats'] == true) return 'TURATS';
+    if (menu['isHufadz'] == true) return 'HUFADZ';
+    return null;
+  }
+
+  void _openSiakad() {
+    if (widget.onOpenSiakad != null) {
+      widget.onOpenSiakad!();
+    } else {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const SiakadPortalScreen()));
+    }
+  }
+
+  /// Kartu santri di Beranda: lembaga + periode berjalan + masa aktif
+  /// (sisa bulan dan kira-kira sampai periode berapa, dalam istilah lembaga).
+  Widget _santriCard() {
+    final riwayat = rows(_santriMe?['riwayat']);
+    final kategori = _lembagaKategori;
+    final masa = obj(obj(_santriStatus?['data'])['masaAktif']);
+    final num? sisaRaw = masa['sisaBulanBerjalan'] ?? masa['sisaKoutaBulan'];
+    final int? sisaBulan = sisaRaw?.round();
+    final sekarangNum = dufahNum(
+            adjustDufahName(val(obj(masa['dufahSekarangSistem'])['nama']))) ??
+        dufahNum(val(riwayat.isEmpty ? null : riwayat.first['dufahNama']));
+    final berakhirNum =
+        dufahNum(adjustDufahName(val(masa['berakhirPadaDufahNama'])));
+    final periodeSekarang = sekarangNum == null
+        ? null
+        : lembagaPeriodeLabel(kategori, sekarangNum);
+    final periodeBerakhir = berakhirNum == null
+        ? null
+        : lembagaPeriodeLabel(kategori, berakhirNum);
+    final low = sisaBulan != null && sisaBulan <= 2;
+    return Card(
+        child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(lembagaLabel(kategori),
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  if (periodeSekarang != null) ...[
+                    const SizedBox(height: 4),
+                    Text('Periode berjalan: $periodeSekarang',
+                        style: const TextStyle(color: MarkazColors.muted)),
+                  ],
+                  if (masa.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text('${sisaBulan ?? '—'}',
+                              style: const TextStyle(
+                                  fontSize: 32, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          const Flexible(
+                              child: Text('bulan tersisa',
+                                  style:
+                                      TextStyle(color: MarkazColors.muted))),
+                        ]),
+                    if (periodeBerakhir != null) ...[
+                      const SizedBox(height: 8),
+                      Text('Kira-kira sampai $periodeBerakhir',
+                          style: const TextStyle(color: MarkazColors.muted)),
+                    ],
+                    if (sisaBulan != null) ...[
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(
+                          value: (sisaBulan / 12).clamp(0.0, 1.0)),
+                    ],
+                    if (low) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                              onPressed: _openSiakad,
+                              icon: const Icon(Icons.autorenew_rounded),
+                              label: const Text('Segera Daftar Ulang'))),
+                    ],
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    const Text('Masa aktif belum dapat dimuat.',
+                        style: TextStyle(color: MarkazColors.muted)),
+                  ],
+                ])));
   }
 
   // ── GPS ────────────────────────────────────────────────────
@@ -450,11 +600,12 @@ class _HomeScreenState extends State<HomeScreen> {
   // BUILD
   // ══════════════════════════════════════════════════════════
   @override
-  Widget build(BuildContext context) => Scaffold(
-          body: SafeArea(
-              child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                  children: [
+  Widget build(BuildContext context) {
+    return Scaffold(
+        body: SafeArea(
+            child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                children: [
             Row(children: [
               Expanded(
                   child: Text('Markaz Arabiyah',
@@ -465,7 +616,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () => showComingSoonDialog(context, 'Notifikasi')),
             ]),
             const SizedBox(height: 16),
-            const RepaintBoundary(child: WelcomePanel()),
+            RepaintBoundary(child: WelcomePanel(name: _santriNama)),
+            if (_santriMe != null) ...[
+              const SizedBox(height: 16),
+              _santriCard(),
+            ],
             const SizedBox(height: 20),
             Text(_currentDate,
                 style:
@@ -493,6 +648,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 24),
             _buildSocialSection(context),
           ])));
+  }
 
   Widget _dailyPrayers() {
     final p = PrayerTimes.today(Coordinates(_lat, _lng),

@@ -29,6 +29,7 @@ class _Portal extends State<SiakadPortalScreen> {
   late final api = widget.api ?? SantriApi();
   final nis = TextEditingController();
   Json? me;
+  Json? statusData;
   String? error, detail;
   bool busy = true, pending = false;
   int tab = 0;
@@ -45,6 +46,7 @@ class _Portal extends State<SiakadPortalScreen> {
     Navigator.of(context).popUntil((r) => r.isFirst);
     setState(() {
       me = null;
+      statusData = null;
       detail = null;
       tab = 0;
       error = 'Sesi berakhir. Masuk kembali.';
@@ -77,6 +79,78 @@ class _Portal extends State<SiakadPortalScreen> {
       }
     });
     widget.onAuth?.call(true);
+    loadStatus();
+  }
+
+  /// Masa aktif (PPDB me/status) untuk kartu Beranda. Gagal memuat
+  /// tidak mengganggu login — kartu tinggal tidak tampil.
+  Future<void> loadStatus() async {
+    try {
+      final s = obj(await api.call('/api/santri/me/status'));
+      if (mounted) setState(() => statusData = s);
+    } catch (_) {}
+  }
+
+  /// Kartu Masa aktif ala dashboard website; null bila datanya belum ada.
+  Widget? masaAktifCard() {
+    final masa = obj(obj(statusData?['data'])['masaAktif']);
+    if (masa.isEmpty) return null;
+    final num? sisaRaw = masa['sisaBulanBerjalan'] ?? masa['sisaKoutaBulan'];
+    final int? sisaBulan = sisaRaw?.round();
+    final berakhir = adjustDufahName(val(masa['berakhirPadaDufahNama']));
+    final berjalan =
+        adjustDufahName(val(obj(masa['dufahSekarangSistem'])['nama']));
+    final berakhirTampil = berakhir != '—' && berakhir != 'Belum Ditentukan';
+    final berjalanTampil = berjalan != '—' && berjalan != 'Belum Ditentukan';
+    final low = sisaBulan != null && sisaBulan <= 2;
+    return Card(
+        child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Masa aktif',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text('${sisaBulan ?? '—'}',
+                            style: const TextStyle(
+                                fontSize: 32, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        const Flexible(
+                            child: Text('bulan tersisa',
+                                style:
+                                    TextStyle(color: MarkazColors.muted))),
+                      ]),
+                  if (berakhirTampil) ...[
+                    const SizedBox(height: 8),
+                    Text('Berakhir pada: $berakhir',
+                        style: const TextStyle(color: MarkazColors.muted)),
+                  ],
+                  if (berjalanTampil) ...[
+                    const SizedBox(height: 4),
+                    Text('Sedang berjalan: $berjalan',
+                        style: const TextStyle(color: MarkazColors.muted)),
+                  ],
+                  if (sisaBulan != null) ...[
+                    const SizedBox(height: 12),
+                    LinearProgressIndicator(
+                        value: (sisaBulan / 12).clamp(0.0, 1.0)),
+                  ],
+                  if (low) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                            onPressed: () => open(features.firstWhere(
+                                (f) => f.title == 'Daftar ulang')),
+                            icon: const Icon(Icons.autorenew_rounded),
+                            label: const Text('Segera Daftar Ulang'))),
+                  ],
+                ])));
   }
 
   Future<void> login() async {
@@ -159,7 +233,15 @@ class _Portal extends State<SiakadPortalScreen> {
       }).toList();
   Widget cards(List<Feature> items) => FeatureGrid(children: [
         for (final f in items)
-          FeatureCard(label: f.title, icon: f.icon, onTap: () => open(f)),
+          FeatureCard(
+              // Website: santri Turats melihat "Pemilihan OSIM".
+              // Nama internal tetap 'Pemilihan' agar FeaturePage tak berubah.
+              label: f.title == 'Pemilihan' &&
+                      obj(me?['menu'])['isTurats'] == true
+                  ? 'Pemilihan OSIM'
+                  : f.title,
+              icon: f.icon,
+              onTap: () => open(f)),
       ]);
   @override
   Widget build(BuildContext context) {
@@ -167,6 +249,7 @@ class _Portal extends State<SiakadPortalScreen> {
     final user = obj(me?['santri']);
     final history = rows(me?['riwayat']);
     final signed = me != null;
+    final masaCard = masaAktifCard();
     return PopScope(
         canPop: !widget.isActive ||
             (widget.onExit == null && detail == null && tab == 0),
@@ -275,6 +358,10 @@ class _Portal extends State<SiakadPortalScreen> {
                                       if (history.isNotEmpty)
                                         Text(
                                             "${val(history.first['kelasNama'])} · ${val(history.first['programNama'])}"),
+                                      if (masaCard != null) ...[
+                                        const SizedBox(height: 16),
+                                        masaCard,
+                                      ],
                                       const SizedBox(height: 16),
                                       const PrayerPanel(),
                                       Wrap(

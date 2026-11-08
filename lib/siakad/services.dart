@@ -1,5 +1,64 @@
 part of 'features.dart';
 
+/// Format angka ke Rupiah, mis. "Rp 1.250.000".
+String _rp(dynamic v) {
+  final n = v is num ? v : (v == null ? null : num.tryParse(v.toString()));
+  if (n == null) return '—';
+  return 'Rp ${NumberFormat('id-ID').format(n)}';
+}
+
+/// Harga program (angka) dari `programTersedia`, null bila tak ada.
+int? _hargaProgram(Json p) {
+  final h = p['harga'];
+  final n = h is num ? h : (h == null ? null : num.tryParse(h.toString()));
+  return n?.round();
+}
+
+/// Harga yang dibayar tanpa atribut: harga − Rp 100.000 (min. 0),
+/// mengikuti halaman daftar-ulang website (fix 32add8e).
+int? _hargaDiskon(Json p) {
+  final h = _hargaProgram(p);
+  if (h == null) return null;
+  final d = h - 100000;
+  return d < 0 ? 0 : d;
+}
+
+/// Nama dufah ala website: angka pertama < 80 ditambah 80
+/// (PPDB "Duf'ah 15" → tampil "Duf'ah 95").
+String adjustDufahName(String name) {
+  if (name.isEmpty || name == 'Belum Ditentukan') return name;
+  return name.replaceFirstMapped(RegExp(r'\d+'), (m) {
+    final n = int.tryParse(m.group(0)!);
+    if (n == null) return m.group(0)!;
+    return (n < 80 ? n + 80 : n).toString();
+  });
+}
+
+/// Lembaga santri dari Program.kategori (mengikuti Siakad src/lib/lembaga.ts):
+/// TURATS → Markaz Turats, HUFADZ → Markaz Hufadz, lainnya (REGULER/null)
+/// → Markaz Arabiyah.
+String lembagaLabel(String? kategori) {
+  if (kategori == 'TURATS') return 'Markaz Turats';
+  if (kategori == 'HUFADZ') return 'Markaz Hufadz';
+  return 'Markaz Arabiyah';
+}
+
+/// Nama periode dalam istilah lembaganya. Nomor berjalan mengikuti Duf'ah:
+/// Marhalah = Duf'ah − 89, Nukhbah = Duf'ah − 93 (acuan Bawwabah 94/5/1;
+/// ketiga lembaga naik bersama, jadi selisihnya tetap).
+String lembagaPeriodeLabel(String? kategori, int dufahNum) {
+  if (kategori == 'TURATS') return 'Marhalah ${dufahNum - 89}';
+  if (kategori == 'HUFADZ') return 'Nukhbah ${dufahNum - 93}';
+  return "Duf'ah $dufahNum";
+}
+
+/// Angka pertama dari nama periode ("Duf'ah 95" → 95), null bila tak ada.
+int? dufahNum(String? name) {
+  if (name == null) return null;
+  final m = RegExp(r'\d+').firstMatch(name);
+  return m == null ? null : int.tryParse(m.group(0)!);
+}
+
 extension _Services on _Page {
   Future<void> permit() async {
     if (history.isEmpty) return;
@@ -126,16 +185,126 @@ extension _Services on _Page {
           return [
             tile('Menunggu verifikasi', p['noKwitansi']),
             tile('Program', obj(p['program'])['nama']),
-            tile('Jumlah transfer', 'Rp ${p['totalTagihan']}'),
+            if (obj(p['dufah']).isNotEmpty)
+              tile('Dufah', obj(p['dufah'])['nama']),
+            tile('Jumlah transfer', _rp(p['totalTagihan'])),
+            if (p['kodeUnik'] != null) ...[
+              tile('Kode unik', '+${p['kodeUnik']}'),
+              tile('Catatan',
+                  'Transfer tepat hingga 3 digit terakhir agar otomatis terbaca oleh admin.'),
+            ],
             tile('Tujuan pembayaran',
                 'BANK BRI a.n Markaz Arabiyah · 0555-01-001108-569'),
+            action('Salin No. Kwitansi', () async {
+              await Clipboard.setData(
+                  ClipboardData(text: val(p['noKwitansi'])));
+              if (mounted)
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('No. Kwitansi disalin.')));
+            }, icon: Icons.copy_rounded),
+            action('Salin No. Rekening', () async {
+              await Clipboard.setData(
+                  const ClipboardData(text: '055501001108569'));
+              if (mounted)
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('No. Rekening disalin.')));
+            }, icon: Icons.copy_rounded),
+            action(
+                'Konfirmasi via WhatsApp Admin',
+                () => external(
+                    'https://wa.me/6281212887788?text=Assalamualaikum%20Admin,%20saya%20sudah%20transfer%20daftar%20ulang.'),
+                icon: Icons.chat_rounded),
             action('Batalkan tagihan', () async {
               if (await confirm('Batalkan tagihan?', val(p['noKwitansi'])))
                 await send(endpoint, {}, method: 'DELETE');
             })
           ];
         final programs = rows(obj(extra['meta'])['programTersedia']);
+        final masa = obj(obj(extra['data'])['masaAktif']);
+        final logika = obj(obj(extra['data'])['logikaSistem']);
+        final klaim = logika['klaimTersedia'] == true;
+        final num? sisaRaw =
+            masa['sisaBulanBerjalan'] ?? masa['sisaKoutaBulan'];
+        final int? sisaBulan = sisaRaw?.round();
+        final berakhir =
+            adjustDufahName(val(masa['berakhirPadaDufahNama']));
+        final berjalan = adjustDufahName(
+            val(obj(masa['dufahSekarangSistem'])['nama']));
+        final berakhirTampil =
+            berakhir != '—' && berakhir != 'Belum Ditentukan';
+        final berjalanTampil =
+            berjalan != '—' && berjalan != 'Belum Ditentukan';
+        final wajib = logika['butuhDaftarUlang'] == true;
         return [
+          Card(
+              child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Masa aktif',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text('${sisaBulan ?? '—'}',
+                                  style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              const Flexible(
+                                  child: Text('bulan tersisa',
+                                      style: TextStyle(
+                                          color: MarkazColors.muted))),
+                            ]),
+                        if (berakhirTampil) ...[
+                          const SizedBox(height: 8),
+                          Text('Berakhir pada: $berakhir',
+                              style: const TextStyle(
+                                  color: MarkazColors.muted)),
+                        ],
+                        if (berjalanTampil) ...[
+                          const SizedBox(height: 4),
+                          Text('Sedang berjalan: $berjalan',
+                              style: const TextStyle(
+                                  color: MarkazColors.muted)),
+                        ],
+                        if (sisaBulan != null) ...[
+                          const SizedBox(height: 12),
+                          LinearProgressIndicator(
+                              value: (sisaBulan / 12).clamp(0.0, 1.0)),
+                        ],
+                        if (wajib) ...[
+                          const SizedBox(height: 12),
+                          const Text(
+                              'Sistem menandakan Anda wajib mendaftar ulang pada periode ini.',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: MarkazColors.danger)),
+                        ],
+                      ]))),
+          if (klaim)
+            Card(
+                child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Daftar Ulang — Tinggal Pilih Program',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Text(
+                              'Anda memiliki sisa kuota ${sisaBulan ?? '—'} bulan${berakhirTampil ? ' (berakhir $berakhir)' : ''}. Pilih program untuk periode berikutnya di bawah ini.',
+                              style: const TextStyle(
+                                  color: MarkazColors.muted)),
+                        ]))),
+          Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 4),
+              child: Text(
+                  klaim ? 'Pilih Program Anda' : 'Memilih Program Pendaftaran',
+                  style: Theme.of(context).textTheme.titleLarge)),
           if (programs.isEmpty)
             const MarkazState(
                 title: 'Belum ada program tersedia',
@@ -143,21 +312,44 @@ extension _Services on _Page {
                     'Pilihan daftar ulang akan tampil saat pendaftaran dibuka.'),
           for (final p in programs)
             group(val(p['nama']), [
-              tile(p['hargaFormatted'],
-                  fields(p, ['durasiBulanFormatted', 'tglProgramFormatted'])),
+              if (klaim)
+                tile(
+                    'Rp 0',
+                    fields(p, [
+                      'durasiBulanFormatted',
+                      'tglProgramFormatted'
+                    ]))
+              else if (_hargaDiskon(p) != null) ...[
+                tile(_rp(_hargaDiskon(p)),
+                    fields(p, ['durasiBulanFormatted', 'tglProgramFormatted'])),
+                tile('Harga normal',
+                    '${val(p['hargaFormatted'])} — sudah dikurangi Rp 100.000 (tanpa atribut)'),
+              ] else
+                tile(p['hargaFormatted'],
+                    fields(p, ['durasiBulanFormatted', 'tglProgramFormatted'])),
               action('Pilih program', () async {
-                final claim =
-                    obj(obj(extra['data'])['logikaSistem'])['klaimTersedia'] ==
-                        true;
-                final attr = claim
+                final attr = klaim
                     ? '0'
                     : await choose('Atribut', [
-                        ('0', 'Tanpa tambahan atribut'),
-                        ('1', 'Beli atribut')
+                        ('0', 'Tanpa atribut — nominal dikurangi Rp 100.000'),
+                        ('1', 'Beli atribut (+Rp 100.000)')
                       ]);
-                if (attr != null &&
-                    await confirm('Konfirmasi daftar ulang',
-                        fields(p, ['nama', 'hargaFormatted'])))
+                if (attr == null) return;
+                final bayar = klaim
+                    ? 0
+                    : attr == '1'
+                        ? _hargaProgram(p)
+                        : _hargaDiskon(p);
+                final hargaTeks = klaim
+                    ? 'Rp 0 (Klaim gratis — aktif seketika tanpa pembayaran)'
+                    : bayar == null
+                        ? val(p['hargaFormatted'])
+                        : '${_rp(bayar)}${attr == '1' ? '' : ' (sudah dikurangi Rp 100.000)'}';
+                if (await confirm(
+                    klaim
+                        ? 'Konfirmasi klaim program'
+                        : 'Konfirmasi daftar ulang',
+                    '${val(p['nama'])} — $hargaTeks${klaim ? '' : '\n\nBiaya yang sudah dibayarkan tidak dapat direfund atau dialihkan.'}'))
                   await send(endpoint,
                       {'programId': p['id'], 'isBeliAtribut': attr == '1'});
               })

@@ -27,6 +27,7 @@ class _MainLayoutState extends State<MainLayout> {
     switch (index) {
       case 0:
         return HomeScreen(
+            santriLoggedIn: _authenticated,
             onOpenSiakad: () => _onItemTapped(2),
             onOpenCalendar: () => _onItemTapped(3),
             onOpenQuran: () => _onItemTapped(1),
