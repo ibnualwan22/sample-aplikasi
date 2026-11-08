@@ -21,8 +21,10 @@ class AppConfig {
   static String get siakadPortalUrl =>
       dotenv.env['SIAKAD_PORTAL_URL'] ?? SiakadPortal.defaultBaseUrl;
 
+  // API berada di origin yang sama dengan portal — jangan hardcode origin
+  // kedua (dulu Vercel, kini mati 404; API live di siakad.site).
   static String get siakadApiBaseUrl =>
       dotenv.env['SIAKAD_API_BASE_URL'] ??
       dotenv.env['SIGMA_API_BASE_URL'] ??
-      'https://sistem-akademik-markaz.vercel.app/api';
+      '${siakadPortalUrl.replaceAll(RegExp(r'/+$'), '')}/api';
 }

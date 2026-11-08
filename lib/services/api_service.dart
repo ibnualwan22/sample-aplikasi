@@ -122,7 +122,7 @@ class ApiService {
     return null;
   }
 
-  // Mengambil daftar postingan Instagram dari API SIAKAD (Vercel)
+  // Mengambil daftar postingan Instagram dari API SIAKAD
   static Future<Map<String, dynamic>?> getInstagramPosts() async {
     try {
       final response = await http.get(Uri.parse('$_siakadBase/instagram/feed'));
@@ -133,7 +133,7 @@ class ApiService {
     return null;
   }
 
-  // Mengambil agenda rutinan dari API SIAKAD (Vercel)
+  // Mengambil agenda rutinan dari API SIAKAD
   static Future<Map<String, dynamic>?> getAgenda(
       {int? month, int? year}) async {
     try {
