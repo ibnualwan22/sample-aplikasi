@@ -6,6 +6,8 @@ Acuan visual adalah [sampel Beranda yang diterima](beranda-maskot-emas.png) dan 
 
 ## Temuan awal sebelum migrasi dan batas pekerjaan
 
+**Arahan pemilik, 8 November 2026:** perbaiki Absensi, Nilai dan Riwayat agar ringkasan serta data penting langsung terlihat. Menu SIAKAD lainnya mengikuti tampilan dan alur website, kemudian diadaptasi untuk HP dengan tema putih–emas aplikasi. Cakupan meliputi ringkasan, tab, filter, formulir, detail dan modal; jangan menerapkan satu susunan kartu ekspansi pada semua fitur. Rujukan halaman dan batas verifikasi tercatat pada bagian “Arahan SIAKAD terbaru” di [DESIGN.md](../DESIGN.md). Prioritas: Absensi → Nilai → Riwayat, kemudian menu lain. Arahan ini belum menandai pekerjaan implementasi selesai.
+
 - Sebelum migrasi, tema global di `lib/main.dart` masih gelap. Sejumlah halaman memiliki konstanta warna, latar kartu, warna teks, gradient, dan gaya dialog tersendiri. Audit juga mencakup HTML yang dibungkus aplikasi, CustomPainter kompas, QR, dan kontrol paket pihak ketiga.
 - Katalog `lib/siakad/catalog.dart` memiliki 19 fitur. `SiakadPortalScreen` mengelola login, Beranda, Akademik, Layanan, Semua fitur, serta Akun. `FeaturePage` dan ekstensi layanan membangun sebagian besar isi secara dinamis. Satu perubahan helper dapat berdampak pada banyak fitur.
 - `confirm`, `ask`, dan `choose` di `lib/siakad/features.dart` digunakan ulang pada banyak transaksi. Dialog ujian, kalender/tanggal/jam, tafsir, unduhan mushaf, pembaruan aplikasi, dan bottom sheet layanan masih punya jalur pembukaan tersendiri.

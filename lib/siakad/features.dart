@@ -333,6 +333,166 @@ class _Page extends State<FeaturePage> {
       .map((k) => val(m[k]))
       .join(' · ');
   String date(dynamic v) => v == null ? '—' : v.toString().split('T').first;
+  Widget _metric(String label, dynamic value, {Color? color}) => Expanded(
+      child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Column(children: [
+            Text(val(value),
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: color ?? MarkazColors.ink)),
+            const SizedBox(height: 4),
+            Text(label,
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 11, color: MarkazColors.muted)),
+          ])));
+
+  Widget _featureLead() {
+    final content = <String, (IconData, String, String)>{
+      'Hasil Tes': (
+        Icons.fact_check_outlined,
+        'Hasil tes',
+        'Lihat hasil belajar yang sudah diterbitkan untuk periode Anda.'
+      ),
+      'QR Saya': (
+        Icons.qr_code_2_rounded,
+        'QR absensi',
+        'Tunjukkan kode ini kepada petugas untuk mencatat kehadiran.'
+      ),
+      'Daftar ulang': (
+        Icons.autorenew_rounded,
+        'Daftar ulang',
+        'Periksa masa aktif dan pilihan program untuk periode berikutnya.'
+      ),
+      'WhatsApp AI': (
+        Icons.chat_bubble_outline_rounded,
+        'Nomor WhatsApp',
+        'Hubungkan nomor Anda untuk menerima layanan WhatsApp.'
+      ),
+      'Pemilihan': (
+        Icons.how_to_vote_outlined,
+        'Pemilihan santri',
+        'Tinjau kandidat dan status pemilihan sebelum mengirim suara.'
+      ),
+      'Tasmi’': (
+        Icons.record_voice_over_outlined,
+        'Hasil Tasmi’',
+        'Tinjau setoran dan penilaian yang telah dicatat penguji.'
+      ),
+      'Nadi Hufadz': (
+        Icons.menu_book_outlined,
+        'Nadi Hufadz',
+        'Periksa pendaftaran, setoran, dan hasil program hafalan.'
+      ),
+      'Galeri': (
+        Icons.photo_library_outlined,
+        'Arsip kegiatan',
+        'Pilih periode untuk melihat album kegiatan yang tersedia.'
+      ),
+      'Denah Sakan': (
+        Icons.map_outlined,
+        'Denah lokasi',
+        'Pilih lokasi untuk melihat informasi dan rute.'
+      ),
+      'Berita Acara': (
+        Icons.assignment_outlined,
+        'Berita acara',
+        'Periksa catatan pengajar dan lengkapi konfirmasi yang diperlukan.'
+      ),
+      'Lapor Mukholif': (
+        Icons.report_outlined,
+        'Laporan santri',
+        'Buat laporan kejadian atau tinjau laporan yang sudah dikirim.'
+      ),
+      'Eksekusi Iqob': (
+        Icons.task_alt,
+        'Tindak lanjut iqob',
+        'Tinjau tugas yang menunggu penyelesaian.'
+      ),
+      'Check out': (
+        Icons.exit_to_app_rounded,
+        'Pengajuan check out',
+        'Pantau persetujuan atau ajukan check out sesuai ketentuan.'
+      ),
+      'Ujian': (
+        Icons.quiz_outlined,
+        'Ujian online',
+        'Lanjutkan ujian yang tersedia dan periksa hasil yang telah dibuka.'
+      ),
+      'Tauzi’ Fushul': (
+        Icons.edit_note_rounded,
+        'Tes penempatan',
+        'Pilih program tujuan, kerjakan tes, dan tinjau hasil penempatan.'
+      ),
+      'Akun': (
+        Icons.person_outline_rounded,
+        'Informasi akun',
+        'Tinjau identitas dan informasi santri yang tersimpan.'
+      ),
+    }[name];
+    if (content == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                  color: MarkazColors.gold,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Icon(content.$1)),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Text(content.$2,
+                  style: Theme.of(context).textTheme.titleLarge)),
+        ]),
+        const SizedBox(height: 8),
+        Text(content.$3, style: Theme.of(context).textTheme.bodySmall),
+      ]),
+    );
+  }
+
+  Widget _attendance(Json h, String category, String label) {
+    final summary = obj(h['rekapAbsen$category']);
+    final entries = rows(h['absen$category']);
+    final total = int.tryParse(val(summary['total'])) ?? entries.length;
+    final attended = summary['hadir'] ??
+        entries.where((a) => val(a['status']).toUpperCase() == 'HADIR').length;
+    return Card(
+        child: ExpansionTile(
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(
+          '$attended hadir · ${summary['alpha'] ?? summary['alpa'] ?? 0} alpa · ${summary['izin'] ?? 0} izin · ${summary['sakit'] ?? 0} sakit\n$total sesi tercatat'),
+      children: [
+        Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(children: [
+              _metric('Hadir', summary['hadir'] ?? 0),
+              _metric('Alpa', summary['alpha'] ?? summary['alpa'] ?? 0,
+                  color: MarkazColors.danger),
+              _metric('Izin', summary['izin'] ?? 0),
+              _metric('Sakit', summary['sakit'] ?? 0),
+            ])),
+        if (entries.isEmpty)
+          const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Belum ada catatan absensi pada kategori ini.',
+                  style: TextStyle(color: MarkazColors.muted)))
+        else
+          for (final a in entries)
+            tile(
+                date(a['tanggal']),
+                fields(
+                    a, ['sesi', 'namaKegiatan', 'namaKelompok', 'keterangan']),
+                a['status']),
+      ],
+    ));
+  }
+
   Widget group(String title, List<Widget> cs) => Card(
       child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -390,6 +550,7 @@ class _Page extends State<FeaturePage> {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               if (working) const LinearProgressIndicator(),
+              if (!loading && error == null) _featureLead(),
               if (cs.isEmpty)
                 MarkazState(
                     title: 'Belum ada data $name',
@@ -401,57 +562,166 @@ class _Page extends State<FeaturePage> {
 
   List<Widget> content() {
     switch (name) {
-      case 'Nilai':
-      case 'Riwayat':
       case 'Absensi':
+        if (history.isEmpty)
+          return [
+            const MarkazState(
+                title: 'Belum ada data absensi',
+                message:
+                    'Rekap hadir, alpa, izin, dan sakit akan tampil di sini.')
+          ];
         return [
-          for (final h in history)
-            group(
-                fields(h, ['dufahNama', 'programNama', 'kelasNama']),
-                name == 'Absensi'
-                    ? [
-                        for (final k in [
-                          'Kelas',
-                          'Sakan',
-                          'Kegiatan',
-                          'Tabirot'
-                        ])
-                          group('Absensi $k', [
-                            tile('Kehadiran',
-                                "${obj(h['rekapAbsen$k'])['hadir']} dari ${obj(h['rekapAbsen$k'])['total']}"),
-                            for (final a in rows(h['absen$k']))
-                              tile(
-                                  date(a['tanggal']),
-                                  fields(a, [
-                                    'sesi',
-                                    'namaKegiatan',
-                                    'namaKelompok',
-                                    'keterangan'
-                                  ]),
-                                  a['status'])
-                          ])
-                      ]
-                    : [
-                        tile('Rata-rata', h['statusKelulusan'], h['average']),
-                        for (final n in rows(h['nilaiRows']))
-                          tile(
-                              n['namaIndo'],
-                              "Usbu 1: ${val(n['nilaiUsbu1'])} · Usbu 2: ${val(n['nilaiUsbu2'])} · Nihai: ${val(n['nilaiNihai'])}",
-                              n['skor'] ?? '—'),
-                        if (h['transkripGabungan'] != null)
-                          group('Transkrip gabungan', [
-                            for (final n
-                                in rows(h['transkripGabungan']['nilaiRows']))
-                              tile(n['namaIndo'], null, n['skor'])
+          Text(
+              'Rekap per periode dan kategori absensi. Ketuk kategori untuk melihat catatan tanggalnya.',
+              style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 12),
+          for (final h in history) ...[
+            Padding(
+                padding: const EdgeInsets.only(top: 16, bottom: 6),
+                child: Text(
+                    fields(h, ['dufahNama', 'programNama', 'kelasNama']),
+                    style: Theme.of(context).textTheme.titleMedium)),
+            _attendance(h, 'Kelas', 'Absensi kelas'),
+            _attendance(h, 'Sakan', 'Absensi sakan'),
+            _attendance(h, 'Kegiatan', 'Absensi kegiatan'),
+            _attendance(h, 'Tabirot', 'Absensi ta’birot'),
+          ]
+        ];
+      case 'Nilai':
+        if (history.isEmpty)
+          return [
+            const MarkazState(
+                title: 'Belum ada data nilai',
+                message: 'Nilai akan ditampilkan setelah diterbitkan.')
+          ];
+        return [
+          Text(
+              'Pilih periode untuk melihat hasil belajar dan rincian mata pelajaran.',
+              style: Theme.of(context).textTheme.bodySmall),
+          for (final h in history) ...[
+            const SizedBox(height: 12),
+            Card(
+                child: ExpansionTile(
+              initiallyExpanded: history.first == h,
+              title: Text(val(h['dufahNama']),
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(fields(h, ['programNama', 'kelasNama'])),
+              children: [
+                Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(children: [
+                      _metric('Rata-rata', h['average'] ?? '—'),
+                      Expanded(
+                          child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Column(children: [
+                                const Text('Status',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: MarkazColors.muted)),
+                                Text(
+                                    (h['statusKelulusan'] == null
+                                        ? 'Belum tersedia'
+                                        : val(h['statusKelulusan'])),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600))
+                              ]))),
+                    ])),
+                for (final n in rows(h['nilaiRows']))
+                  ListTile(
+                      title: Text(val(n['namaIndo'])),
+                      subtitle: Text(
+                          'Usbu 1: ${val(n['nilaiUsbu1'])} · Usbu 2: ${val(n['nilaiUsbu2'])} · Nihai: ${val(n['nilaiNihai'])}'),
+                      trailing: Text(val(n['skor']),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700))),
+                if (h['transkripGabungan'] != null)
+                  for (final n in rows(h['transkripGabungan']['nilaiRows']))
+                    tile(n['namaIndo'], null, n['skor']),
+                action('Lihat transkrip nilai',
+                    () => document('transkrip', h['id']),
+                    icon: Icons.description_outlined),
+                if (h['canDownloadSyahadah'] == true)
+                  action('Lihat syahadah', () => document('syahadah', h['id']),
+                      icon: Icons.download_outlined),
+              ],
+            )),
+          ]
+        ];
+      case 'Riwayat':
+        if (history.isEmpty)
+          return [
+            const MarkazState(
+                title: 'Belum ada riwayat akademik',
+                message: 'Riwayat program akan tampil di sini saat tersedia.')
+          ];
+        return [
+          Text('Perjalanan belajar berdasarkan periode yang tercatat.',
+              style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 12),
+          for (var i = 0; i < history.length; i++) ...[
+            Card(
+                child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                    width: 36,
+                                    height: 36,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                        color: MarkazColors.gold,
+                                        borderRadius:
+                                            BorderRadius.circular(18)),
+                                    child: Text('${history.length - i}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700))),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                      Text(val(history[i]['dufahNama']),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                          fields(history[i],
+                                              ['programNama', 'kelasNama']),
+                                          style: const TextStyle(
+                                              color: MarkazColors.muted))
+                                    ])),
+                              ]),
+                          const Divider(height: 24),
+                          Wrap(spacing: 20, runSpacing: 8, children: [
+                            Text(
+                                'Rata-rata: ${val(history[i]['average'], fallback: '—')}'),
+                            Text(
+                                'Kelulusan: ${val(history[i]['statusKelulusan'], fallback: '—')}')
                           ]),
-                        action('Lihat transkrip nilai',
-                            () => document('transkrip', h['id']),
-                            icon: Icons.description_outlined),
-                        if (h['canDownloadSyahadah'] == true)
-                          action('Lihat syahadah',
-                              () => document('syahadah', h['id']),
-                              icon: Icons.download_outlined)
-                      ])
+                          if (history[i]['canDownloadSyahadah'] == true)
+                            Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                    onPressed: () => run(() =>
+                                        document('syahadah', history[i]['id'])),
+                                    icon: const Icon(
+                                        Icons.workspace_premium_outlined),
+                                    label: const Text('Lihat syahadah'))),
+                          if (history[i]['transkripGabungan'] != null)
+                            const Text('Transkrip gabungan tersedia',
+                                style: TextStyle(
+                                    color: MarkazColors.muted, fontSize: 12)),
+                        ]))),
+          ]
         ];
       case 'Hasil Tes':
         return [
@@ -506,7 +776,8 @@ class _Page extends State<FeaturePage> {
           tile('Status', user['isAktif'] == true ? 'Aktif' : 'Tidak aktif'),
           tile(
               'Masa aktif',
-              adjustDufahName(val(obj(obj(data['data'])['masaAktif'])['berakhirPadaDufahNama']))),
+              adjustDufahName(val(obj(
+                  obj(data['data'])['masaAktif'])['berakhirPadaDufahNama']))),
           action('Ubah bulan belajar', () async {
             final v = await ask('Bulan ke-', initial: val(user['bulanKe']));
             if (v != null && int.tryParse(v) != null) {

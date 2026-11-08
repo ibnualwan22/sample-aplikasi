@@ -91,6 +91,16 @@ Sebut aksi dan objek langsung, misalnya “Ajukan izin”, “Tinjau pengajuan�
 
 ## Isi fitur dan akhir setiap alur
 
+### Arahan SIAKAD terbaru — 8 November 2026
+
+Untuk menu selain Absensi, Nilai dan Riwayat, gunakan tampilan website SIAKAD sebagai acuan utama: susunan informasi, ringkasan, tab, filter, formulir, detail, modal, status dan tindakan. Adaptasikan ke Flutter dan layar HP dengan tema putih–emas solid #FFCF40, tipografi, ikon berlabel dan sasaran sentuh aplikasi. Pertahankan karakter masing-masing fitur; jangan menyederhanakan semuanya menjadi daftar kartu ekspansi yang sama. Arahan ini menggantikan usulan susunan baru untuk menu lain pada diskusi sebelumnya.
+
+Absensi, Nilai dan Riwayat tetap menjadi fokus perbaikan informatif: Absensi menampilkan akumulasi Hadir/Alpa/Izin/Sakit per jenis dan periode, dengan akses ke catatan pembentuk angka; Nilai mendahulukan laporan periode terpilih dan nilai per mata pelajaran; Riwayat menggunakan perjalanan akademik per periode dengan ringkasan yang langsung terlihat. Bedakan sesi dari hari, data belum tercatat dari alpa, dan nilai belum terbit dari nol. Perhitungan, kelulusan dan hak dokumen mengikuti sumber resmi SIAKAD.
+
+Acuan kode website berada pada proyek `ijazah-sample`, terutama `src/app/santri/(portal)` dan `src/components/santri`. Contoh yang telah ditinjau: Perizinan memiliki Riwayat Izin/Buat Izin, pemilih duf’ah dan ringkasan; Tasmi’ memiliki total sesi, juz terakhir dan penilaian per sesi; Daftar ulang menyesuaikan isi dengan status pengajuan/tagihan. Periksa halaman dan komponen terkait sebelum mengadaptasi setiap menu. Peninjauan kode lokal belum merupakan verifikasi tampilan website produksi atau hasil implementasi Flutter.
+
+Urutan pembenahan: Absensi → Nilai → Riwayat, lalu adaptasi menu lainnya dari website termasuk keadaan kosong, gagal, detail dan modalnya. Ketentuan di bagian ini mencatat arah desain, bukan klaim bahwa semua layar telah diperbarui.
+
 | Area | Yang harus bisa dibaca atau dilakukan |
 | --- | --- |
 | Al-Qur’an, Mushaf, Tafsir | Temukan surah atau halaman, baca teks dan harakat dengan nyaman, kembali ke posisi baca. Beri pemulihan saat halaman gagal dimuat. |
