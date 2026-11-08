@@ -75,4 +75,58 @@ class QuranCacheService {
       await prefs.remove('$_surahDetailPfx$i');
     }
   }
+
+  // ── Mushaf offline (gambar halaman) ─────────────────────────────
+  // Penanda persisten bahwa SEMUA halaman mushaf sudah terunduh, beserta
+  // nama cloud yang dipakai saat mengunduh. Cloud disimpan karena kunci
+  // cache gambar adalah URL lengkapnya — ganti cloud = URL berubah =
+  // cache lama tidak berlaku lagi, dan penanda ini sengaja ikut gugur.
+
+  static const String _mushafDoneKey = 'quran_mushaf_downloaded';
+  static const String _mushafCloudKey = 'quran_mushaf_downloaded_cloud';
+  static const String _mushafCountKey = 'quran_mushaf_downloaded_count';
+  static const String _mushafMigratedKey = 'quran_mushaf_migrated_to_docs';
+
+  /// Tandai unduh mushaf selesai untuk [cloudName] sebanyak [pageCount].
+  static Future<void> saveMushafDownloaded(
+      {required String cloudName, required int pageCount}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_mushafDoneKey, true);
+    await prefs.setString(_mushafCloudKey, cloudName);
+    await prefs.setInt(_mushafCountKey, pageCount);
+  }
+
+  /// True bila mushaf sudah terunduh penuh DENGAN cloud yang sama dengan
+  /// [cloudName] saat ini. Beda cloud → false (cache lama tak berlaku).
+  static Future<bool> isMushafDownloadedFor(String cloudName) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_mushafDoneKey) ?? false)) return false;
+    return prefs.getString(_mushafCloudKey) == cloudName;
+  }
+
+  /// Jumlah halaman saat penanda disimpan (0 bila belum pernah).
+  static Future<int> mushafDownloadedCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_mushafCountKey) ?? 0;
+  }
+
+  /// Hapus penanda unduh mushaf (mis. saat unduh ulang dari nol).
+  static Future<void> clearMushafDownloaded() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_mushafDoneKey);
+    await prefs.remove(_mushafCloudKey);
+    await prefs.remove(_mushafCountKey);
+  }
+
+  /// True bila migrasi cache lama (direktori sementara → dokumen) sudah
+  /// pernah dijalankan.
+  static Future<bool> isMushafMigrated() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_mushafMigratedKey) ?? false;
+  }
+
+  static Future<void> setMushafMigrated() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_mushafMigratedKey, true);
+  }
 }

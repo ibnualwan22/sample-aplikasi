@@ -1,14 +1,27 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 import '../widgets/markaz_components.dart';
 import '../theme/markaz_theme.dart';
 import '../services/api_service.dart';
+import '../services/quran_cache_service.dart';
 import '../services/quran_image_cache_manager.dart';
 import '../data/quran_pages.dart';
 import 'surah_detail_screen.dart';
 import 'mushaf_viewer_screen.dart';
 
+/// Format ukuran byte ke satuan yang mudah dibaca (B / KB / MB).
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kb = bytes / 1024;
+  if (kb < 1024) return '${kb.toStringAsFixed(0)} KB';
+  final mb = kb / 1024;
+  return '${mb.toStringAsFixed(1).replaceAll('.', ',')} MB';
+}
+
 const _kCard2 = MarkazColors.ivory;
-const _kGoldL = MarkazColors.ink;
 const _kSec = MarkazColors.muted;
 const _kDiv = MarkazColors.line;
 
@@ -24,11 +37,98 @@ class _QuranScreenState extends State<QuranScreen> {
   bool _byJuz = false;
   final _search = TextEditingController();
 
+  /// Status unduh mushaf: true bila semua halaman sudah terunduh dengan
+  /// cloud yang sama seperti saat ini.
+  bool _mushafDownloaded = false;
+  int _mushafCachedPages = 0;
+
   @override
   void initState() {
     super.initState();
     _fetch();
+    _loadMushafStatus();
     _search.addListener(_changed);
+  }
+
+  /// Muat status unduh mushaf (penanda persisten + hitungan halaman
+  /// tersimpan). Migrasi cache lama dijalankan dulu supaya halaman yang
+  /// sudah ada di lokasi lama ikut terhitung.
+  Future<void> _loadMushafStatus() async {
+    await QuranImageCacheManager.migrateLegacyCacheIfNeeded();
+    final cloud = AppConfig.cloudinaryCloudName;
+    final done = await QuranCacheService.isMushafDownloadedFor(cloud);
+    if (!mounted) return;
+    setState(() => _mushafDownloaded = done);
+    if (done) {
+      if (mounted) setState(() => _mushafCachedPages = kTotalMushafPages);
+      return;
+    }
+    final cm = QuranImageCacheManager.instance;
+    int count = 0;
+    for (int i = 1; i <= kTotalMushafPages; i++) {
+      if (await cm.getFileFromCache(mushafPageUrl(i)) != null) count++;
+    }
+    if (mounted) setState(() => _mushafCachedPages = count);
+  }
+
+  /// Ukur total ukuran mushaf + yang sudah tersimpan.
+  /// Total adalah ESTIMASI dari rata-rata 24 halaman tersebar (ditandai
+  /// "±"); ukuran unduhan sesungguhnya dihitung dari file yang masuk.
+  Future<({int totalBytes, bool known, int cachedPages, int cachedBytes})>
+      _measureMushaf() async {
+    await QuranImageCacheManager.migrateLegacyCacheIfNeeded();
+    final cm = QuranImageCacheManager.instance;
+    int cachedPages = 0;
+    int cachedBytes = 0;
+    for (int i = 1; i <= kTotalMushafPages; i++) {
+      final info = await cm.getFileFromCache(mushafPageUrl(i));
+      if (info != null) {
+        cachedPages++;
+        try {
+          cachedBytes += await info.file.length();
+        } catch (_) {}
+      }
+    }
+    final sample = <int>[
+      for (int i = 0; i < 24; i++) 1 + (i * kTotalMushafPages ~/ 24)
+    ];
+    final client = http.Client();
+    int sum = 0;
+    int ok = 0;
+    try {
+      final results = await Future.wait(sample.map((page) async {
+        try {
+          final res = await client
+              .head(Uri.parse(mushafPageUrl(page)))
+              .timeout(const Duration(seconds: 10));
+          return int.tryParse(res.headers['content-length'] ?? '');
+        } catch (_) {
+          return null;
+        }
+      }));
+      for (final len in results) {
+        if (len != null) {
+          sum += len;
+          ok++;
+        }
+      }
+    } finally {
+      client.close();
+    }
+    if (ok == 0) {
+      return (
+        totalBytes: 0,
+        known: false,
+        cachedPages: cachedPages,
+        cachedBytes: cachedBytes
+      );
+    }
+    return (
+      totalBytes: (sum / ok * kTotalMushafPages).round(),
+      known: true,
+      cachedPages: cachedPages,
+      cachedBytes: cachedBytes
+    );
   }
 
   void _changed() => setState(() {});
@@ -66,28 +166,66 @@ class _QuranScreenState extends State<QuranScreen> {
   }
 
   Future<void> _download() async {
+    // 1. Hitung ukuran dulu, dengan indikator menunggu.
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+              content: Row(children: [
+                SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.5)),
+                SizedBox(width: 16),
+                Expanded(child: Text('Menghitung ukuran mushaf…')),
+              ]),
+            ));
+    final sizes = await _measureMushaf();
+    if (!mounted) return;
+    Navigator.pop(context); // tutup dialog "menghitung"
+
+    // 2. Konfirmasi dengan kapasitas yang dibutuhkan.
+    final totalStr =
+        sizes.known ? '±${_formatBytes(sizes.totalBytes)}' : 'tidak dapat dihitung';
+    final remaining =
+        sizes.known ? max(0, sizes.totalBytes - sizes.cachedBytes) : 0;
+    final allCached = sizes.cachedPages >= kTotalMushafPages;
     final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
               scrollable: true,
               title: const MarkazDialogTitle('Simpan mushaf',
                   icon: Icons.download_outlined),
-              content: const Text(
-                  'Unduh 604 halaman agar mushaf dapat dibaca tanpa internet. Gunakan koneksi yang stabil. Halaman yang sudah tersimpan akan dilewati.'),
+              content: Text(
+                  'Unduh $kTotalMushafPages halaman agar mushaf dapat dibaca tanpa internet.\n\n'
+                  'Butuh $totalStr ruang penyimpanan.\n'
+                  'Sudah tersimpan: ${sizes.cachedPages}/$kTotalMushafPages halaman (${_formatBytes(sizes.cachedBytes)}).'
+                  '${sizes.known && remaining > 0 ? '\nMasih perlu diunduh: ±${_formatBytes(remaining)}.' : ''}'
+                  '${allCached ? '\nSemua halaman sudah tersimpan.' : ''}\n\n'
+                  'Gunakan koneksi yang stabil. Halaman yang sudah tersimpan akan dilewati.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text('Nanti')),
                 FilledButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Mulai unduh')),
+                    child:
+                        Text(allCached ? 'Periksa ulang' : 'Mulai unduh')),
               ],
             ));
     if (!mounted || confirmed != true) return;
+
+    // 3. Dialog progres (MB + halaman).
     await showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const _DownloadMushafDialog());
+        builder: (_) => _DownloadMushafDialog(
+              totalBytes: sizes.totalBytes,
+              alreadyBytes: sizes.cachedBytes,
+            ));
+
+    // 4. Segarkan status setelah dialog ditutup.
+    if (mounted) _loadMushafStatus();
   }
 
   @override
@@ -153,6 +291,29 @@ class _QuranScreenState extends State<QuranScreen> {
                                           size: 20),
                                       label: const Text('Unduh')),
                                 ]),
+                                if (_mushafDownloaded) ...[
+                                  const SizedBox(height: 12),
+                                  const Row(children: [
+                                    Icon(Icons.check_circle_outline, size: 16),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                        child: Text(
+                                            'Mushaf sudah diunduh — siap dibaca offline',
+                                            style: TextStyle(fontSize: 12))),
+                                  ]),
+                                ] else if (_mushafCachedPages > 0) ...[
+                                  const SizedBox(height: 12),
+                                  Row(children: [
+                                    const Icon(Icons.download_done_outlined,
+                                        size: 16),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                        child: Text(
+                                            '$_mushafCachedPages/$kTotalMushafPages halaman sudah tersimpan',
+                                            style:
+                                                const TextStyle(fontSize: 12))),
+                                  ]),
+                                ],
                               ])),
                       const SizedBox(height: 24),
                       TextField(
@@ -313,19 +474,29 @@ class _QuranScreenState extends State<QuranScreen> {
 }
 
 class _DownloadMushafDialog extends StatefulWidget {
-  const _DownloadMushafDialog();
+  /// Estimasi total ukuran (byte, 0 bila tidak dapat dihitung).
+  final int totalBytes;
+
+  /// Byte yang sudah tersimpan sebelum unduhan ini dimulai.
+  final int alreadyBytes;
+
+  const _DownloadMushafDialog(
+      {required this.totalBytes, required this.alreadyBytes});
+
   @override
   State<_DownloadMushafDialog> createState() => _DownloadMushafDialogState();
 }
 
 class _DownloadMushafDialogState extends State<_DownloadMushafDialog> {
   int _progress = 0;
+  int _downloadedBytes = 0;
   bool _isDownloading = true;
   bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
+    _downloadedBytes = widget.alreadyBytes;
     _startDownload();
   }
 
@@ -342,11 +513,18 @@ class _DownloadMushafDialogState extends State<_DownloadMushafDialog> {
         final file = await cacheManager.getFileFromCache(url);
         if (!mounted) return;
         if (file == null) {
-          await cacheManager.downloadFile(url);
+          final downloaded = await cacheManager.downloadFile(url);
+          try {
+            _downloadedBytes += await downloaded.file.length();
+          } catch (_) {}
         }
         if (!mounted) return;
         setState(() => _progress = i);
       }
+      // Selesai penuh → tandai agar lain kali tidak dihitung ulang.
+      await QuranCacheService.saveMushafDownloaded(
+          cloudName: AppConfig.cloudinaryCloudName,
+          pageCount: kTotalMushafPages);
       if (mounted) setState(() => _isDownloading = false);
     } catch (_) {
       if (mounted)
@@ -359,7 +537,12 @@ class _DownloadMushafDialogState extends State<_DownloadMushafDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final pct = _progress / kTotalMushafPages;
+    final pct = widget.totalBytes > 0
+        ? (_downloadedBytes / widget.totalBytes).clamp(0.0, 1.0)
+        : _progress / kTotalMushafPages;
+    final sizeLine = widget.totalBytes > 0
+        ? '${_formatBytes(_downloadedBytes)} dari ${_formatBytes(widget.totalBytes)} • ${(pct * 100).toInt()}%'
+        : '${_formatBytes(_downloadedBytes)} terunduh';
     return AlertDialog(
       scrollable: true,
       backgroundColor: _kCard2,
@@ -376,21 +559,26 @@ class _DownloadMushafDialogState extends State<_DownloadMushafDialog> {
             LinearProgressIndicator(
                 value: pct, color: MarkazColors.ink, backgroundColor: _kDiv),
             const SizedBox(height: 8),
+            Text(sizeLine,
+                style: const TextStyle(color: _kSec, fontSize: 12)),
+            const SizedBox(height: 4),
             Text('$_progress / $kTotalMushafPages halaman',
                 style: const TextStyle(color: _kSec, fontSize: 12)),
           ] else if (_hasError) ...[
             const Icon(Icons.error_outline,
                 color: MarkazColors.danger, size: 48),
             const SizedBox(height: 16),
-            const Text('Gagal mengunduh. Periksa koneksi internet Anda.',
-                style: TextStyle(color: MarkazColors.ink, fontSize: 13),
+            Text(
+                'Gagal mengunduh di halaman ${_progress + 1}. ${_formatBytes(_downloadedBytes)} sudah tersimpan — halaman yang sudah tersimpan akan dilewati saat mencoba lagi.',
+                style: const TextStyle(color: MarkazColors.ink, fontSize: 13),
                 textAlign: TextAlign.center),
           ] else ...[
             const Icon(Icons.check_circle_outline,
                 color: MarkazColors.ink, size: 48),
             const SizedBox(height: 16),
-            const Text('Mushaf berhasil diunduh dan siap dibaca offline!',
-                style: TextStyle(color: MarkazColors.ink, fontSize: 13),
+            Text(
+                'Mushaf berhasil diunduh dan siap dibaca offline! (${_formatBytes(_downloadedBytes)} tersimpan di perangkat.)',
+                style: const TextStyle(color: MarkazColors.ink, fontSize: 13),
                 textAlign: TextAlign.center),
           ]
         ],

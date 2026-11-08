@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../data/articles.dart';
 import 'quran_cache_service.dart';
 import '../config/app_config.dart';
 
@@ -147,6 +148,26 @@ class ApiService {
       return jsonDecode(response.body);
     } catch (e) {
       print('Error getAgenda: $e');
+    }
+    return null;
+  }
+
+  // Mengambil daftar artikel dari WordPress markazarabiyah.com (data live).
+  // Duplikat lama SMA Al-Falah (28 Agu 2026) disaring — yang dipakai yang
+  // terbaru (14 Sep 2026).
+  static Future<List<dynamic>?> getArticles() async {
+    try {
+      final response = await http
+          .get(Uri.parse(kArticlesApiUrl))
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list
+            .where((a) => a['slug'] != kDuplicateAlFalahSlug)
+            .toList();
+      }
+    } catch (e) {
+      print('Error getArticles: $e');
     }
     return null;
   }

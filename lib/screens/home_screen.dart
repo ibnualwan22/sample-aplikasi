@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 import '../widgets/coming_soon_dialog.dart';
 import 'denah_sakan_screen.dart';
+import 'article_list_screen.dart';
 import 'kiblat_screen.dart';
 import 'siakad_portal_screen.dart';
 import 'tafsir_screen.dart';
@@ -543,7 +544,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(c);
-                    showComingSoonDialog(context, label);
+                    if (label == 'Semua Artikel') {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ArticleListScreen()));
+                    } else {
+                      showComingSoonDialog(context, label);
+                    }
                   }),
           ]));
 
@@ -555,6 +563,11 @@ class _HomeScreenState extends State<HomeScreen> {
         'Al-Qur’an',
         Icons.menu_book_rounded,
         widget.onOpenQuran ?? () => page(const QuranScreen())
+      ),
+      (
+        'Artikel',
+        Icons.article_rounded,
+        () => page(const ArticleListScreen())
       ),
       ('Jadwal Salat', Icons.schedule_rounded, _openPrayerSchedule),
       ('Kiblat', Icons.explore_rounded, () => page(const KiblatScreen())),
