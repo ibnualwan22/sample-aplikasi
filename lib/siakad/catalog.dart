@@ -19,7 +19,6 @@ const features = <Feature>[
     role: 'isHufadz'
   ),
   (title: 'Check out', icon: Icons.door_front_door_rounded, tab: 2, role: null),
-  (title: 'WhatsApp AI', icon: Icons.chat_rounded, tab: 2, role: null),
   (title: 'Denah Sakan', icon: Icons.map_rounded, tab: 2, role: null),
   (title: 'Galeri', icon: Icons.photo_library_rounded, tab: 2, role: null),
   (title: 'Pemilihan', icon: Icons.how_to_vote_rounded, tab: 2, role: null),
