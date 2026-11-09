@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
+import 'display_date.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +24,7 @@ import 'file_view.dart';
 import '../services/push_service.dart';
 part 'services.dart';
 part 'feature_views.dart';
+part 'profile_view.dart';
 
 class FeaturePage extends StatefulWidget {
   const FeaturePage(
@@ -342,12 +344,7 @@ class _Page extends State<FeaturePage> {
       .where((k) => m[k] != null && m[k] != '')
       .map((k) => val(m[k]))
       .join(' · ');
-  String date(dynamic v) {
-    final parsed = DateTime.tryParse(val(v));
-    return parsed == null
-        ? val(v)
-        : DateFormat('d MMM yyyy', 'id_ID').format(parsed);
-  }
+  String date(dynamic v) => siakadDisplayDate(v);
 
   Widget _featureLead() {
     final content = <String, (IconData, String, String)>{
@@ -517,7 +514,7 @@ class _Page extends State<FeaturePage> {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               if (working) const LinearProgressIndicator(),
-              if (!loading && error == null) _featureLead(),
+              if (!loading && error == null && name != 'Akun') _featureLead(),
               if (cs.isEmpty)
                 MarkazState(
                     title: 'Belum ada data $name',
@@ -600,71 +597,7 @@ class _Page extends State<FeaturePage> {
                 subtitle: const Text('Hadir'))
         ];
       case 'Akun':
-        return [
-          panel(val(user['nama']), [Text('NIS ${val(user['id'])}')],
-              badge: badge(user['isAktif'] == true ? 'Aktif' : 'Tidak aktif'),
-              tinted: true),
-          section('Tempat tinggal'),
-          tile('Sakan dan kamar', fields(user, ['sakan', 'kamar'])),
-          tile('Nomor lemari', user['nomorLemari']),
-          section('Identitas santri'),
-          tile('Tempat dan tanggal lahir',
-              fields(user, ['tempatLahir', 'tanggalLahir'])),
-          tile('Alamat', user['alamat']),
-          section('Masa belajar dan kartu'),
-          tile(
-              'Masa aktif',
-              adjustDufahName(val(obj(
-                  obj(data['data'])['masaAktif'])['berakhirPadaDufahNama']))),
-          action('Ubah bulan belajar', () async {
-            final v = await ask('Bulan ke-', initial: val(user['bulanKe']));
-            if (v != null && int.tryParse(v) != null) {
-              await send('me/update-bulan', {'bulanKe': int.parse(v)});
-              await widget.onChanged();
-              if (mounted) setState(() => profile = widget.me);
-            }
-          }),
-          action('Kartu santri', () async {
-            // The PPDB file provider must never receive the SIAKAD session cookie.
-            final r = await http
-                .get(Uri.https(
-                    'ppdb.markazarabiyah.site',
-                    '/api/digital-card/siakad/${user['id']}',
-                    {'download': '1'}))
-                .timeout(const Duration(seconds: 25));
-            if (r.statusCode != 200)
-              throw const PortalError('Kartu santri belum tersedia.');
-            final b = r.bodyBytes;
-            final mime = b.length > 4 &&
-                    b[0] == 0x25 &&
-                    b[1] == 0x50 &&
-                    b[2] == 0x44 &&
-                    b[3] == 0x46
-                ? 'application/pdf'
-                : b.length > 4 && b[0] == 0x89 && b[1] == 0x50
-                    ? 'image/png'
-                    : b.length > 3 && b[0] == 0xff && b[1] == 0xd8
-                        ? 'image/jpeg'
-                        : null;
-            if (mime == null)
-              throw const PortalError('Format kartu santri tidak didukung.');
-            if (mounted)
-              await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => SantriFileView(
-                          title: 'Kartu santri',
-                          bytes: b,
-                          type: mime,
-                          filename:
-                              'kartu-santri.${mime == 'image/jpeg' ? 'jpg' : mime.split('/').last}')));
-          }),
-          action('Keluar akun', () async {
-            if (await confirm(
-                'Keluar akun?', 'Sesi SIAKAD di perangkat ini akan dihapus.'))
-              await widget.onLogout?.call();
-          })
-        ];
+        return profileContent();
       case 'Ujian':
         final exams = rows(data);
         final visible = exams

@@ -296,7 +296,7 @@ class _Portal extends State<SiakadPortalScreen> {
                     ? IconButton(
                         icon: const Icon(Icons.arrow_back), onPressed: back)
                     : null,
-                title: Text(detail ?? 'SIAKAD',
+                title: Text(detail ?? (tab == 3 ? 'Profil' : 'SIAKAD'),
                     maxLines: 2, style: const TextStyle(fontSize: 17)),
                 actions: [
                   if (signed)

@@ -94,12 +94,17 @@ final previewHistory = <Json>[
 ];
 final previewMe = <String, dynamic>{
   'santri': {
-    'id': 'CONTOH',
+    'id': '001234',
     'nama': 'Santri Contoh',
     'isAktif': true,
     'sakan': 'Sakan A',
     'kamar': '12',
-    'nomorLemari': '5'
+    'nomorLemari': '5',
+    'tempatLahir': 'Bandung',
+    'tanggalLahir': '2004-03-09T00:00:00+07:00',
+    'alamat':
+        'Jalan Pendidikan Nomor 12, Kecamatan Sukamaju, Kabupaten Bandung',
+    'bulanKe': 3
   },
   'riwayat': previewHistory,
   'menu': {'isHufadz': true, 'isKetuaKelas': true, 'isLajnah': true}
@@ -402,6 +407,41 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
   }
+  testWidgets(
+      'Profile shows calendar birth date, empty photo and edit validation',
+      (t) async {
+    final api = PreviewApi();
+    addTearDown(api.dispose);
+    await t.pumpWidget(preview('Akun', api));
+    await t.pumpAndSettle();
+    expect(find.text('NIS 001234'), findsOneWidget);
+    expect(find.text('09-03-2004'), findsOneWidget);
+    expect(find.textContaining('T00:00'), findsNothing);
+    final photo = t.widget<Container>(
+        find.byKey(const ValueKey('profile-photo-placeholder')));
+    expect(photo.child, isNull);
+    await t.scrollUntilVisible(find.text('Ubah bulan belajar'), 250);
+    await t.tap(find.text('Ubah bulan belajar'));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextFormField), '0');
+    await t.tap(find.text('Simpan'));
+    await t.pumpAndSettle();
+    expect(find.text('Masukkan angka bulan mulai dari 1.'), findsOneWidget);
+    await t.enterText(find.byType(TextFormField), '4');
+    api.failSave = true;
+    await t.tap(find.text('Simpan'));
+    await t.pumpAndSettle();
+    expect(find.text('Koneksi terputus. Coba simpan lagi.'), findsOneWidget);
+    expect(
+        t.widget<TextFormField>(find.byType(TextFormField)).initialValue, '4');
+    await screenshot(t, 'siakad-profil-dialog');
+    api.failSave = false;
+    await t.tap(find.text('Simpan'));
+    await t.pumpAndSettle();
+    expect(api.lastBody, {'bulanKe': 4});
+    expect(find.byType(AlertDialog), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
   testWidgets('Populated pages adapt to 320dp and 200% text', (t) async {
     t.view.devicePixelRatio = 1;
     t.view.physicalSize = const Size(320, 800);

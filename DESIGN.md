@@ -125,6 +125,8 @@ Urutan pembenahan: Absensi → Nilai → Riwayat, lalu adaptasi menu lainnya dar
 
 ## Keputusan sementara dan hal yang perlu diuji
 
+Rencana khusus pembenahan profil pada tab Akun berada di [rencana profil SIAKAD](docs/rencana-profil-siakad.md). Arahan 10 November 2026: wadah foto profil sementara kosong, data dikelompokkan dengan rapi, tanggal dibaca dalam format Indonesia, serta ikon tanpa emoji. Kode profil telah diterapkan dengan tanggal `dd-MM-yyyy`; verifikasi render menunggu SDK Flutter yang memenuhi dependency proyek. Status pengujian tercatat pada dokumen tersebut.
+
 Emas utama telah ditetapkan #FFCF40. Penempatan maskot dan susunan Beranda telah diterima pemilik. Pengenalan ikon oleh santri serta kelancaran pada ponsel sasaran perlu diuji saat implementasi.
 
 <details>

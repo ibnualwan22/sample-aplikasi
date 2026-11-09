@@ -38,7 +38,7 @@ class _RequestForm extends State<ServiceRequestForm> {
     'KELUAR_PARE': 'Keluar Pare',
     'TABIROT': 'Tabirot'
   };
-  String date(DateTime d) => DateFormat('dd MMM yyyy', 'id_ID').format(d);
+  String date(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
   String iso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
   @override
   void dispose() {

@@ -698,7 +698,8 @@ extension _Services on _Page {
                 const Text('Belum ada setoran pada periode ini.'),
               for (final t in rows(r['setoran']))
                 tile(fields(t, ['surat', 'ayat']),
-                    fields(t, ['tanggal', 'penyimak', 'catatan'])),
+                    [date(t['tanggal']), fields(t, ['penyimak', 'catatan'])]
+                        .where((v) => v.isNotEmpty).join(' · ')),
               if (r['tasmi'] != null)
                 action('Lihat syahadah', () => document('nadi', r['id'])),
               if (r['tasmi'] != null)
