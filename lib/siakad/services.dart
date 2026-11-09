@@ -98,6 +98,36 @@ extension _Services on _Page {
       await send('$election/vote', {'sesiId': s['id'], 'paslonId': p['id']});
   }
 
+  /// Buka satu pengumuman: tandai dibaca di server, turunkan badge bel,
+  /// lalu tampilkan isi lengkap + tautannya (bila tautan eksternal).
+  Future<void> _openPengumuman(Json p) async {
+    if (p['sudahDibaca'] != true) {
+      try {
+        await get(
+            'pengumuman/${Uri.encodeComponent(val(p['id']))}/baca',
+            method: 'POST');
+        if (mounted) {
+          updateView(() {
+            p['sudahDibaca'] = true;
+            SantriPush.unreadCount.value =
+                (SantriPush.unreadCount.value - 1).clamp(0, 1 << 30);
+          });
+        }
+      } catch (_) {
+        // Gagal menandai dibaca: isi tetap dibuka.
+      }
+    }
+    if (!mounted) return;
+    final tautan = val(p['tautan']);
+    await detailSheet(val(p['judul']), [
+      tile(val(p['pengirimLabel']), date(p['dibuatAt'])),
+      Text(val(p['isi'])),
+      if (tautan.startsWith('https://'))
+        action('Buka tautan', () => external(tautan),
+            icon: Icons.open_in_new),
+    ]);
+  }
+
   List<Widget> services() {
     switch (name) {
       case 'Perizinan':
@@ -377,6 +407,47 @@ extension _Services on _Page {
                       {'programId': p['id'], 'isBeliAtribut': attr == '1'});
               })
             ])
+        ];
+      case 'Pengumuman':
+        final items = rows(data['items']);
+        final belum = data['jumlahBelumDibaca'];
+        // Ketukan notifikasi: buka satu pengumuman begitu daftar termuat.
+        final pendingId = SantriPush.openPengumumanId;
+        if (pendingId != null) {
+          SantriPush.openPengumumanId = null;
+          final target =
+              items.where((i) => val(i['id']) == pendingId).firstOrNull;
+          if (target != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _openPengumuman(target);
+            });
+          }
+        }
+        return [
+          if (items.isNotEmpty)
+            statistics([
+              ('Belum dibaca',
+                  belum ??
+                      items
+                          .where((i) => i['sudahDibaca'] != true)
+                          .length),
+              ('Total pengumuman', items.length),
+            ]),
+          if (items.isEmpty)
+            const MarkazState(
+                title: 'Belum ada pengumuman',
+                message:
+                    'Pengumuman dari pengurus dan admin akan tampil di sini.'),
+          for (final p in items)
+            InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _openPengumuman(p),
+                child: panel(val(p['judul']), [
+                  Text(val(p['isi']),
+                      maxLines: 3, overflow: TextOverflow.ellipsis),
+                  tile(val(p['pengirimLabel']), date(p['dibuatAt'])),
+                ],
+                    badge: p['sudahDibaca'] != true ? badge('Baru') : null)),
         ];
       case 'Pemilihan':
         final s = obj(data['sesi']);

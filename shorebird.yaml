@@ -11,4 +11,6 @@ app_id: 6d4c9f3b-50b2-4342-a4d9-b0d970bdacc4
 # If auto_update: false, you will need to use package:shorebird_code_push to trigger updates.
 # https://pub.dev/packages/shorebird_code_push
 # Uncomment the following line to disable automatic updates.
-auto_update: false
+# auto_update: false
+# Opsi 1 (8 Nov 2026): update otomatis aktif — patch diunduh di background
+# dan diterapkan saat app dibuka berikutnya, tanpa dialog.

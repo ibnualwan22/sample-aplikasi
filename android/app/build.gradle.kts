@@ -3,6 +3,8 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    // Firebase Cloud Messaging — membaca android/app/google-services.json.
+    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -20,6 +22,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Wajib untuk flutter_local_notifications (AAR metadata check).
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -64,6 +68,11 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
             "Lengkapi android/key.properties sesuai key.properties.example sebelum membuat rilis."
         }
     }
+}
+
+dependencies {
+    // Core library desugaring (wajib untuk flutter_local_notifications).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

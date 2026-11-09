@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import '../widgets/markaz_components.dart';
 import '../theme/markaz_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/push_service.dart';
 import '../siakad/api.dart';
 import '../siakad/catalog.dart';
 import '../siakad/features.dart';
@@ -27,6 +31,7 @@ class SiakadPortalScreen extends StatefulWidget {
 
 class _Portal extends State<SiakadPortalScreen> {
   late final api = widget.api ?? SantriApi();
+  late final push = SantriPush(api);
   final nis = TextEditingController();
   Json? me;
   Json? statusData;
@@ -38,11 +43,29 @@ class _Portal extends State<SiakadPortalScreen> {
     super.initState();
     pending = widget.resultRequest > 0 || widget.initialFeature == 'Hasil Tes';
     api.onExpired = expired;
+    push.pendingLink.addListener(_onPendingLink);
     restore();
+  }
+
+  /// Ketukan notifikasi: buka tautan eksternal, atau buka inbox
+  /// Pengumuman (dan satu pengumumannya bila ada id).
+  void _onPendingLink() {
+    final link = push.pendingLink.value;
+    if (link == null || link.isEmpty) return;
+    push.pendingLink.value = null;
+    if (link.externalUrl != null) {
+      unawaited(launchUrl(Uri.parse(link.externalUrl!),
+          mode: LaunchMode.externalApplication));
+      return;
+    }
+    if (!mounted) return;
+    SantriPush.openPengumumanId = link.pengumumanId;
+    open(features.firstWhere((f) => f.title == 'Pengumuman'));
   }
 
   void expired() {
     if (!mounted) return;
+    SantriPush.unreadCount.value = 0;
     Navigator.of(context).popUntil((r) => r.isFirst);
     setState(() {
       me = null;
@@ -80,6 +103,9 @@ class _Portal extends State<SiakadPortalScreen> {
     });
     widget.onAuth?.call(true);
     loadStatus();
+    // Push FCM: daftarkan perangkat + muat badge belum-dibaca.
+    unawaited(push.registerAfterLogin());
+    unawaited(push.refreshUnread());
   }
 
   /// Masa aktif (PPDB me/status) untuk kartu Beranda. Gagal memuat
@@ -195,6 +221,7 @@ class _Portal extends State<SiakadPortalScreen> {
   @override
   void dispose() {
     api.onExpired = null;
+    push.pendingLink.removeListener(_onPendingLink);
     if (widget.api == null) api.dispose();
     nis.dispose();
     super.dispose();
@@ -267,6 +294,18 @@ class _Portal extends State<SiakadPortalScreen> {
                     maxLines: 2, style: const TextStyle(fontSize: 17)),
                 actions: [
                   if (signed)
+                    ValueListenableBuilder<int>(
+                        valueListenable: SantriPush.unreadCount,
+                        builder: (_, count, __) => IconButton(
+                            tooltip: 'Pengumuman',
+                            onPressed: () => open(features.firstWhere(
+                                (f) => f.title == 'Pengumuman')),
+                            icon: Badge.count(
+                                count: count.clamp(0, 99),
+                                isLabelVisible: count > 0,
+                                child: const Icon(
+                                    Icons.notifications_outlined)))),
+                  if (signed)
                     if (MediaQuery.sizeOf(context).width /
                             MediaQuery.textScalerOf(context).scale(1) <
                         280)
@@ -336,6 +375,10 @@ class _Portal extends State<SiakadPortalScreen> {
                                 onChanged: identity,
                                 onLogout: () async {
                                   try {
+                                    // Hapus token FCM perangkat sebelum sesi
+                                    // dihapus, agar santri tak lagi menerima
+                                    // push setelah keluar akun.
+                                    await push.unregisterBeforeLogout();
                                     await api.logout();
                                   } finally {
                                     expired();

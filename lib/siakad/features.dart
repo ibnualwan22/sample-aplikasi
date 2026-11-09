@@ -20,6 +20,7 @@ import 'api.dart';
 import 'exam.dart';
 import 'scan.dart';
 import 'file_view.dart';
+import '../services/push_service.dart';
 part 'services.dart';
 part 'feature_views.dart';
 
@@ -126,6 +127,7 @@ class _Page extends State<FeaturePage> {
         'Check out': 'checkout',
         'Ujian': 'ujian',
         'Tauzi’ Fushul': 'me/tauzi',
+        'Pengumuman': 'pengumuman',
         'Akun': 'me/status'
       }[name] ??
       'me';
@@ -423,6 +425,11 @@ class _Page extends State<FeaturePage> {
         Icons.edit_note_rounded,
         'Tes penempatan',
         'Pilih program tujuan, kerjakan tes, dan tinjau hasil penempatan.'
+      ),
+      'Pengumuman': (
+        Icons.notifications_outlined,
+        'Pengumuman',
+        'Pengumuman dari pengurus dan admin — ketuk untuk membaca dan membuka tautannya.'
       ),
       'Akun': (
         Icons.person_outline_rounded,

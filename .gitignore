@@ -2,6 +2,10 @@
 .env
 .env.*
 
+# Firebase Android config — berisi kunci API proyek; build rilis hanya
+# butuh file lokal (disalin dari ~/workspace/siakad-notifikasi/firebase/).
+/android/app/google-services.json
+
 # Miscellaneous
 *.class
 *.log
@@ -48,3 +52,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 upload_cloudinary.py
+
+# Kunci signing rilis — JANGAN commit (berisi password keystore).
+# Shorebird 8 Nov 2026: key.properties + keystore hanya ada di laptop.
+/android/key.properties
+*.jks
+*.keystore

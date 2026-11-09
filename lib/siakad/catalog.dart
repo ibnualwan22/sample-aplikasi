@@ -8,6 +8,12 @@ const features = <Feature>[
   (title: 'QR Saya', icon: Icons.qr_code_rounded, tab: 2, role: null),
   (title: 'Perizinan', icon: Icons.assignment_rounded, tab: 2, role: null),
   (title: 'Daftar ulang', icon: Icons.autorenew_rounded, tab: 2, role: null),
+  (
+    title: 'Pengumuman',
+    icon: Icons.notifications_rounded,
+    tab: 2,
+    role: null
+  ),
   (title: 'Hasil Tes', icon: Icons.fact_check_rounded, tab: 1, role: null),
   (title: 'Riwayat', icon: Icons.history_rounded, tab: 1, role: null),
   (title: 'Tauzi’ Fushul', icon: Icons.edit_note_rounded, tab: 1, role: null),
