@@ -1,9 +1,11 @@
 import 'package:html/parser.dart' as html_parser;
 import 'package:intl/intl.dart';
 
-/// Endpoint daftar artikel (WP REST API, data live).
-const String kArticlesApiUrl =
-    'https://markazarabiyah.com/wp-json/wp/v2/posts?per_page=100&_embed';
+/// Endpoint daftar artikel (WP REST API, data live). Carousel Beranda
+/// hanya butuh sedikit (perPage 10) agar muat sebelum batas waktu di
+/// koneksi lambat; daftar lengkap tetap memakai 100.
+String articlesApiUrl({int perPage = 100}) =>
+    'https://markazarabiyah.com/wp-json/wp/v2/posts?per_page=$perPage&_embed';
 
 /// Slug duplikat lama SMA Al-Falah (28 Agu 2026) — disaring, yang dipakai
 /// yang terbaru (14 Sep 2026).

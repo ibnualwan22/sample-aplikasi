@@ -14,7 +14,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
-        android:label="Markaz Arabiyah"
+        android:label="Markaz Arabiyah Tech"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -44,6 +44,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Jaga suara notifikasi pengumuman (res/raw/three_bright_notes.mp3)
+             dari resource shrinker (R8): file ini hanya dirujuk lewat nama
+             (string) dari flutter_local_notifications, jadi analisis statis
+             menganggapnya tak terpakai. keep.xml (tools:keep) saja TIDAK
+             cukup di build ini (1.0.6+8: resource tetap terbuang, aapt2
+             dump tak menemukannya) — referensi dari manifest selalu
+             dianggap terpakai oleh shrinker, jadi meta-data ini yang
+             mempertahankannya di APK. Tanpa ini, plugin menolak show()
+             dan pop-up notifikasi tidak tampil sama sekali. -->
+        <meta-data
+            android:name="site.markazarabiyah.siakad.keep_notification_sound"
+            android:resource="@raw/three_bright_notes" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

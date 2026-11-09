@@ -15,7 +15,7 @@ class SiakadPortal {
         host: uri.host,
         port: uri.hasPort ? uri.port : null);
   }
-  static const title = 'SIAKAD Markaz Arabiyah';
+  static const title = 'SIAKAD Markaz Arabiyah Tech';
   static const defaultBaseUrl = 'https://siakad.markazarabiyah.site';
   late final Uri origin;
   Uri get dashboard => origin.resolve('/santri/dashboard');

@@ -188,10 +188,9 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
             _fontItem('Sangat Besar', 34),
           ],
         ),
-        // Buka Mushaf
-        IconButton(
-          icon: const Icon(Icons.menu_book, color: _kGoldL, size: 20),
-          tooltip: 'Tampilan Mushaf',
+        // Buka Mushaf (mode per-lembar) — berlabel agar user tahu bisa
+        // switch dari tampilan per-surah ke tampilan mushaf.
+        TextButton.icon(
           onPressed: () {
             final p = getSurahStartPage(_surahNum);
             Navigator.push(
@@ -200,6 +199,15 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                   builder: (_) => MushafViewerScreen(initialPage: p)),
             );
           },
+          icon: const Icon(Icons.menu_book, color: _kGoldL, size: 18),
+          label: const Text('Mushaf',
+              style: TextStyle(color: _kGoldL, fontSize: 13)),
+          style: TextButton.styleFrom(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8)),
+          ),
         ),
         const SizedBox(width: 4),
       ],

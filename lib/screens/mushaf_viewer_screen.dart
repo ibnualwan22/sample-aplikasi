@@ -2,6 +2,7 @@ import '../theme/markaz_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:paper_curl/paper_curl.dart';
 import '../data/quran_pages.dart';
 import '../services/quran_image_cache_manager.dart';
 
@@ -20,7 +21,7 @@ class MushafViewerScreen extends StatefulWidget {
 }
 
 class _MushafViewerScreenState extends State<MushafViewerScreen> {
-  late PageController _ctrl;
+  late final PageCurlController _ctrl;
   late int _currentPage;
   bool _showOverlay = true;
 
@@ -28,8 +29,8 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   void initState() {
     super.initState();
     _currentPage = widget.initialPage.clamp(1, kTotalMushafPages);
-    // Index dalam PageView = halaman - 1
-    _ctrl = PageController(initialPage: _currentPage - 1);
+    // Index dalam PageCurlView = halaman - 1
+    _ctrl = PageCurlController(initialPage: _currentPage - 1);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -53,9 +54,13 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
     final p = page.clamp(1, kTotalMushafPages);
     if (MediaQuery.disableAnimationsOf(context)) {
       _ctrl.jumpToPage(p - 1);
+    } else if (p == _currentPage + 1) {
+      // Satu halaman maju: lengkungkan sudut (animasi curl).
+      _ctrl.nextPage();
+    } else if (p == _currentPage - 1) {
+      _ctrl.previousPage();
     } else {
-      _ctrl.animateToPage(p - 1,
-          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+      _ctrl.jumpToPage(p - 1);
     }
   }
 
@@ -133,25 +138,22 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
         onTap: () => setState(() => _showOverlay = !_showOverlay),
         child: Stack(
           children: [
-            // ── PageView: Transform flip agar swipe KANAN = halaman berikutnya ──
-            Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.diagonal3Values(-1, 1, 1),
-              child: PageView.builder(
-                controller: _ctrl,
-                itemCount: kTotalMushafPages,
-                onPageChanged: (i) {
-                  setState(() => _currentPage = i + 1);
-                  _precache(i);
-                },
-                itemBuilder: (context, index) {
-                  return Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.diagonal3Values(-1, 1, 1),
-                    child: _buildPage(index + 1),
-                  );
-                },
-              ),
+            // ── PageCurl (butir 9, opsi B): curl sungguhan seperti buku.
+            // RTL "membuka Al-Qur'an dari kanan ke kiri": arah alami
+            // paper_curl sudah cocok — sentuh separuh kanan + seret ke
+            // kiri = halaman berikut, lembaran terangkat dari kanan dan
+            // terlipat ke kiri. Trik cermin ganda (1.0.6+7) DIBUANG karena
+            // membalik arah geser dibanding tampilan lama (seret kiri
+            // malah mundur) — itulah yang terasa "kebalik" di HP.
+            PageCurlView(
+              controller: _ctrl,
+              itemCount: kTotalMushafPages,
+              pageColor: MarkazColors.ivory,
+              onPageChanged: (i) {
+                setState(() => _currentPage = i + 1);
+                _precache(i);
+              },
+              itemBuilder: (context, index) => _buildPage(index + 1),
             ),
 
             // ── Overlay ──────────────────────────────────────────────────────
@@ -288,11 +290,11 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Tombol prev (kiri = halaman sebelumnya)
+          // Tombol next (kiri = halaman berikutnya, RTL: maju ke kiri)
           _navBtn(
             Icons.chevron_left,
-            enabled: _currentPage > 1,
-            onTap: () => _goToPage(_currentPage - 1),
+            enabled: _currentPage < kTotalMushafPages,
+            onTap: () => _goToPage(_currentPage + 1),
           ),
           // Lompat ke halaman
           GestureDetector(
@@ -315,11 +317,11 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
               ]),
             ),
           ),
-          // Tombol next (kanan = halaman berikutnya)
+          // Tombol prev (kanan = halaman sebelumnya, RTL: mundur ke kanan)
           _navBtn(
             Icons.chevron_right,
-            enabled: _currentPage < kTotalMushafPages,
-            onTap: () => _goToPage(_currentPage + 1),
+            enabled: _currentPage > 1,
+            onTap: () => _goToPage(_currentPage - 1),
           ),
         ],
       ),

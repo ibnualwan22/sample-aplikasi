@@ -8,23 +8,25 @@ import '../siakad/prayer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:adhan/adhan.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
-import '../widgets/coming_soon_dialog.dart';
 import 'denah_sakan_screen.dart';
 import 'article_list_screen.dart';
 import 'kiblat_screen.dart';
 import 'siakad_portal_screen.dart';
 import 'tafsir_screen.dart';
 import 'quran_screen.dart';
-import 'instagram_grid_screen.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'article_detail_screen.dart';
+import 'public_pengumuman_screen.dart';
+import '../data/articles.dart';
+import '../services/api_service.dart';
+import '../services/push_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter/foundation.dart';
 
 // ============================================================
 // WARNA TEMA — Putih & Emas
@@ -55,7 +57,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver {
   String _currentDate = '';
   String _lokasiKota = 'Mencari lokasi...';
   String _nextPrayerName = 'MEMUAT...';
@@ -69,7 +72,20 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _nextPrayerDt;
   Timer? _timer;
 
-  WebViewController? _elfsightWebViewController;
+  // Batch 1.0.6+7 butir 8: grid menu ciut (8 card) / melebar (semua).
+  bool _menuExpanded = false;
+
+  // Butir 7: carousel artikel (5 terbaru, auto-slide 5 detik).
+  List<dynamic> _artikelCarousel = [];
+  bool _artikelGagal = false;
+  int _artikelPage = 0;
+  PageController? _artikelCtrl;
+  Timer? _artikelTimer;
+
+  // Butir 4: pengumuman terbaru di Beranda (maks. 3 item).
+  List<dynamic> _pengumumanTerbaru = [];
+  // Nilai terakhir angka belum-dibaca; naik = pengumuman baru masuk.
+  int _lastUnreadCount = 0;
 
   final _shorebirdUpdater = ShorebirdUpdater();
 
@@ -100,67 +116,26 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _checkForUpdates();
     _loadSantri();
+    _loadArtikelCarousel();
+    _loadPengumumanTerbaru();
+    // Pengumuman baru yang masuk saat aplikasi dibuka: muat ulang daftar
+    // begitu angka belum-dibaca naik (pesan foreground memanggil
+    // refreshUnread), dan saat aplikasi kembali dari latar.
+    _lastUnreadCount = SantriPush.unreadCount.value;
+    SantriPush.unreadCount.addListener(_onUnreadChanged);
+    WidgetsBinding.instance.addObserver(this);
 
-    if (!kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS)) {
-      _elfsightWebViewController = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(Colors.transparent)
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onNavigationRequest: (NavigationRequest request) async {
-              final url = request.url;
+  }
 
-              // Biarkan skrip internal WebView berjalan dengan aman
-              if (url.startsWith('data:') || url.contains('elfsightcdn.com')) {
-                return NavigationDecision.navigate;
-              }
+  void _onUnreadChanged() {
+    final n = SantriPush.unreadCount.value;
+    if (n > _lastUnreadCount) _loadPengumumanTerbaru();
+    _lastUnreadCount = n;
+  }
 
-              // Cegat semua tautan ke luar, termasuk intent khusus Android (Instagram)
-              Uri uri;
-              if (url.startsWith('intent://')) {
-                // Konversi Android intent URL kembali ke link web standar
-                // Contoh: intent://instagram.com/_u/foo... -> https://instagram.com/_u/foo...
-                final cleanStr = url
-                    .replaceFirst('intent://', 'https://')
-                    .split('#Intent')
-                    .first;
-                uri = Uri.parse(cleanStr);
-              } else {
-                uri = Uri.parse(url);
-              }
-
-              try {
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                } else if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Tidak dapat membuka aplikasi Instagram')));
-                }
-              } catch (e) {
-                debugPrint('NavigationError: $e');
-              }
-
-              return NavigationDecision
-                  .prevent; // Tolak render ke WebView karena kita sudah melemparnya ke Aplikasi!
-            },
-          ),
-        )
-        ..loadHtmlString('''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <style>body { margin: 0; padding: 0; background-color: #FFFFFF; }</style>
-</head>
-<body>
-  <script src="https://elfsightcdn.com/platform.js" async></script>
-  <div class="elfsight-app-6f1e26c4-1501-4e35-9fc8-c7d3ab6c84ad" data-elfsight-app-lazy></div>
-</body>
-</html>
-        ''');
-    }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadPengumumanTerbaru();
   }
 
   Future<void> _checkForUpdates() async {
@@ -288,7 +263,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    SantriPush.unreadCount.removeListener(_onUnreadChanged);
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _artikelTimer?.cancel();
+    _artikelCtrl?.dispose();
     _santriApi?.dispose();
     prayerInfo.value = (
       clock: prayerInfo.value.clock,
@@ -306,11 +285,14 @@ class _HomeScreenState extends State<HomeScreen> {
     super.didUpdateWidget(old);
     if (widget.santriLoggedIn && !old.santriLoggedIn) {
       _loadSantri();
+      _loadPengumumanTerbaru();
     } else if (!widget.santriLoggedIn && old.santriLoggedIn) {
       setState(() {
         _santriMe = null;
         _santriStatus = null;
+        _pengumumanTerbaru = [];
       });
+      _loadPengumumanTerbaru();
     }
   }
 
@@ -608,12 +590,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
             Row(children: [
               Expanded(
-                  child: Text('Markaz Arabiyah',
+                  child: Text('Markaz Arabiyah Tech',
                       style: Theme.of(context).textTheme.headlineSmall)),
               IconButton(
                   tooltip: 'Notifikasi',
                   icon: const Icon(Icons.notifications_none_rounded),
-                  onPressed: () => showComingSoonDialog(context, 'Notifikasi')),
+                  onPressed: _openPengumuman),
             ]),
             const SizedBox(height: 16),
             RepaintBoundary(child: WelcomePanel(name: _santriNama)),
@@ -633,18 +615,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: Text(_lokasiKota, textAlign: TextAlign.center)),
             _dailyPrayers(),
             const SizedBox(height: 20),
-            Row(children: [
-              Expanded(
-                  child: Text('Ibadah & layanan',
-                      style: Theme.of(context).textTheme.titleLarge)),
-              TextButton(onPressed: _showMore, child: const Text('Lainnya'))
-            ]),
+            Text('Ibadah & layanan',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             _buildGridMenu(context),
             const SizedBox(height: 24),
-            _buildSectionTitle('Kabar Markaz', context),
+            _buildPengumumanTerbaru(context),
+            _buildSectionTitle('Artikel', context),
             const SizedBox(height: 12),
-            _buildInstagramList(context),
+            _buildArticleCarousel(context),
             const SizedBox(height: 24),
             _buildSocialSection(context),
           ])));
@@ -689,32 +668,348 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showMore() => showModalBottomSheet(
+
+  // ══════════════════════════════════════════════════════════
+  // BUTIR 6 — PENDAFTARAN
+  // ══════════════════════════════════════════════════════════
+  /// Tile Pendaftaran: tamu memilih lembaga dulu (teks sama persis dengan
+  /// PPDB) lalu dibuka di browser luar; sudah login jadi Daftar Ulang
+  /// (alur portal yang sudah ada).
+  Future<void> _openPendaftaran() async {
+    final loggedIn = _santriMe != null || widget.santriLoggedIn;
+    if (loggedIn) {
+      if (!mounted) return;
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  const SiakadPortalScreen(initialFeature: 'Daftar ulang')));
+      return;
+    }
+    final kategori = await showModalBottomSheet<String>(
       context: context,
       useSafeArea: true,
       builder: (c) => ListView(shrinkWrap: true, children: [
-            const ListTile(title: Text('Layanan lainnya')),
-            for (final label in ['Wirid & Doa', 'Pencarian', 'Semua Artikel'])
-              ListTile(
-                  title: Text(label),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(c);
-                    if (label == 'Semua Artikel') {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ArticleListScreen()));
-                    } else {
-                      showComingSoonDialog(context, label);
-                    }
-                  }),
-          ]));
+        const ListTile(title: Text('Pilih Lembaga')),
+        for (final (nama, desc, kode) in [
+          (
+            'Program Reguler',
+            'Fokus intensif pembelajaran Bahasa Arab.',
+            'REGULER'
+          ),
+          (
+            'Program Turats',
+            'Fokus pembelajaran kutubut turats (Fathul Qorib, Ibnu Aqil, dll).',
+            'TUROTS'
+          ),
+          ('Program Hufadz', "Fokus tahfidz Al-Qur'an.", 'HUFADZ'),
+        ])
+          ListTile(
+            title: Text(nama),
+            subtitle: Text(desc),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pop(c, kode),
+          ),
+      ]),
+    );
+    if (kategori == null || !mounted) return;
+    final uri = Uri.parse(
+        'https://ppdb.markazarabiyah.site/pendaftaran?kategori=$kategori');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // BUTIR 7 — CAROUSEL ARTIKEL (5 terbaru, auto-slide 5 detik)
+  // ══════════════════════════════════════════════════════════
+  Future<void> _loadArtikelCarousel() async {
+    // Carousel hanya butuh 10 terbaru (bukan 100): muatan jauh lebih
+    // ringan sehingga muat sebelum batas waktu di koneksi lambat.
+    final list = await ApiService.getArticles(perPage: 10);
+    if (!mounted) return;
+    setState(() {
+      _artikelCarousel = (list ?? []).take(5).toList();
+      _artikelGagal = list == null;
+      _artikelPage = 0;
+    });
+    _mulaiTimerArtikel();
+  }
+
+  void _mulaiTimerArtikel() {
+    _artikelTimer?.cancel();
+    if (_artikelCarousel.length < 2) return;
+    _artikelTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      final c = _artikelCtrl;
+      if (c == null || !c.hasClients || _artikelCarousel.isEmpty) return;
+      final next = (_artikelPage + 1) % _artikelCarousel.length;
+      c.animateToPage(next,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut);
+    });
+  }
+
+  Widget _buildArticleCarousel(BuildContext ctx) {
+    if (_artikelGagal || _artikelCarousel.isEmpty) {
+      return MarkazState(
+          title: 'Artikel belum dapat dimuat',
+          message: 'Periksa koneksi, lalu buka lagi halaman Beranda.',
+          actionLabel: 'Coba lagi',
+          onAction: _loadArtikelCarousel);
+    }
+    _artikelCtrl ??= PageController();
+    final items = _artikelCarousel;
+    return Column(children: [
+      SizedBox(
+        height: 200,
+        child: PageView.builder(
+          controller: _artikelCtrl,
+          itemCount: items.length,
+          onPageChanged: (i) {
+            setState(() => _artikelPage = i);
+            _mulaiTimerArtikel();
+          },
+          itemBuilder: (context, index) {
+            final a = items[index] as Map<String, dynamic>;
+            final title = plainText(a['title']?['rendered'] ?? '');
+            final img = articleImage(a);
+            final rtl = isArabicText(title);
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Material(
+                color: MarkazColors.ivory,
+                borderRadius: BorderRadius.circular(14),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => Navigator.push(
+                      ctx,
+                      MaterialPageRoute(
+                          builder: (_) => ArticleDetailScreen(article: a))),
+                  child: Stack(fit: StackFit.expand, children: [
+                    if (img != null && img.isNotEmpty)
+                      CachedNetworkImage(
+                          imageUrl: img,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              const SizedBox.shrink()),
+                    Container(
+                        decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                          Colors.transparent,
+                          Colors.black54
+                        ]))),
+                    Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12,
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Directionality(
+                                  textDirection: rtl
+                                      ? TextDirection.rtl
+                                      : TextDirection.ltr,
+                                  child: Text(title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700))),
+                              const SizedBox(height: 4),
+                              Text(articleDate(a),
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 12)),
+                            ])),
+                  ]),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 10),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        for (var i = 0; i < items.length; i++)
+          Container(
+              width: 7,
+              height: 7,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i == _artikelPage
+                      ? MarkazColors.gold
+                      : MarkazColors.line)),
+      ]),
+    ]);
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // BUTIR 4 — PENGUMUMAN TERBARU DI BERANDA + LONCENG
+  // ══════════════════════════════════════════════════════════
+  /// Muat 3 pengumuman terbaru: login → lembaga + global
+  /// (/api/santri/pengumuman); tamu → global saja
+  /// (/api/pengumuman/publik, endpoint publik baru di Siakad).
+  Future<void> _loadPengumumanTerbaru() async {
+    try {
+      final api = _santriApi ??= SantriApi();
+      final loggedIn = await api.restore();
+      final d = obj(await api.call(
+          loggedIn ? '/api/santri/pengumuman' : '/api/pengumuman/publik'));
+      if (!mounted) return;
+      setState(() => _pengumumanTerbaru = rows(d['items']).take(3).toList());
+    } catch (_) {
+      // Gagal memuat: seksi pengumuman disembunyikan.
+    }
+  }
+
+  String _tanggalPengumuman(dynamic v) {
+    final dt = v is String ? DateTime.tryParse(v) : null;
+    if (dt == null) return '';
+    return DateFormat('d MMM yyyy', 'id_ID').format(dt);
+  }
+
+  Widget _buildPengumumanTerbaru(BuildContext ctx) {
+    if (_pengumumanTerbaru.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+            child: Text('Pengumuman Terbaru',
+                style: Theme.of(ctx).textTheme.titleLarge)),
+        TextButton(
+            onPressed: _openPengumuman, child: const Text('Lihat Semua')),
+      ]),
+      const SizedBox(height: 8),
+      for (final p in _pengumumanTerbaru)
+        Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            title: Text(val(p['judul']),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontWeight: p['sudahDibaca'] == true
+                        ? FontWeight.w500
+                        : FontWeight.w700)),
+            subtitle: Text(
+                '${val(p['pengirimLabel'])} · ${_tanggalPengumuman(p['dibuatAt'])}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            trailing: p['sudahDibaca'] == true
+                ? null
+                : Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: MarkazColors.gold,
+                        borderRadius: BorderRadius.circular(8)),
+                    child: const Text('Baru',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: MarkazColors.ink))),
+            onTap: () => _openPengumumanItem(p),
+          ),
+        ),
+      const SizedBox(height: 24),
+    ]);
+  }
+
+  /// Lonceng Beranda: login → inbox Pengumuman di portal; tamu → daftar
+  /// pengumuman global (endpoint publik, tanpa login).
+  void _openPengumuman() {
+    final loggedIn = _santriMe != null || widget.santriLoggedIn;
+    if (loggedIn) {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  const SiakadPortalScreen(initialFeature: 'Pengumuman')));
+    } else {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const PublicPengumumanScreen()));
+    }
+  }
+
+  /// Buka satu pengumuman dari seksi Beranda: tampilkan isi lengkap,
+  /// tandai dibaca bila login (sama seperti inbox portal).
+  Future<void> _openPengumumanItem(Json p) async {
+    final loggedIn = _santriMe != null || widget.santriLoggedIn;
+    final id = val(p['id']);
+    if (loggedIn && p['sudahDibaca'] != true && id.isNotEmpty) {
+      // Optimistis: ubah warna + turunkan badge LANGSUNG, jangan tunggu
+      // server — di koneksi lambat konfirmasi POST telat/gagal diam-diam
+      // sehingga warna baru berubah setelah refresh. Bila POST gagal,
+      // kembalikan tampilan belum dibaca.
+      if (mounted) {
+        setState(() => p['sudahDibaca'] = true);
+        SantriPush.unreadCount.value =
+            (SantriPush.unreadCount.value - 1).clamp(0, 1 << 30);
+      }
+      try {
+        final api = _santriApi ??= SantriApi();
+        await api.call(
+            '/api/santri/pengumuman/${Uri.encodeComponent(id)}/baca',
+            method: 'POST');
+      } catch (_) {
+        if (mounted) {
+          setState(() => p['sudahDibaca'] = false);
+          SantriPush.unreadCount.value =
+              SantriPush.unreadCount.value + 1;
+        }
+      }
+    }
+    if (!mounted) return;
+    final tautan = val(p['tautan']);
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(val(p['judul'])),
+        content: SingleChildScrollView(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Text(
+                  '${val(p['pengirimLabel'])} · ${_tanggalPengumuman(p['dibuatAt'])}',
+                  style: const TextStyle(
+                      color: MarkazColors.muted, fontSize: 13)),
+              const SizedBox(height: 12),
+              Text(val(p['isi'])),
+            ])),
+        actions: [
+          if (tautan.startsWith('https://'))
+            TextButton(
+                onPressed: () {
+                  Navigator.pop(c);
+                  launchUrl(Uri.parse(tautan),
+                      mode: LaunchMode.externalApplication);
+                },
+                child: const Text('Buka tautan')),
+          TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Tutup')),
+        ],
+      ),
+    );
+  }
 
   Widget _buildGridMenu(BuildContext ctx) {
     void page(Widget page) =>
         Navigator.push(ctx, MaterialPageRoute(builder: (_) => page));
+    // Butir 6: tile pertama = Pendaftaran (tamu) / Daftar Ulang (login).
+    final loggedIn = _santriMe != null || widget.santriLoggedIn;
     final items = <(String, IconData, VoidCallback)>[
+      (
+        loggedIn ? 'Daftar Ulang' : 'Pendaftaran',
+        Icons.app_registration_rounded,
+        _openPendaftaran
+      ),
       (
         'Al-Qur’an',
         Icons.menu_book_rounded,
@@ -746,8 +1041,27 @@ class _HomeScreenState extends State<HomeScreen> {
         widget.onOpenSiakad ?? () => page(const SiakadPortalScreen())
       ),
     ];
+    // Butir 8: tampilan ciut = 7 konten + card "Lainnya" (maks. 8 tombol);
+    // ketuk "Lainnya" menampilkan semua, ketuk "Tutup" menciutkan lagi.
+    final shown = <(String, IconData, VoidCallback)>[
+      if (_menuExpanded) ...[
+        ...items,
+        (
+          'Tutup',
+          Icons.expand_less_rounded,
+          () => setState(() => _menuExpanded = false),
+        ),
+      ] else ...[
+        ...items.take(7),
+        (
+          'Lainnya',
+          Icons.more_horiz_rounded,
+          () => setState(() => _menuExpanded = true),
+        ),
+      ],
+    ];
     return FeatureGrid(children: [
-      for (final item in items)
+      for (final item in shown)
         FeatureCard(label: item.$1, icon: item.$2, onTap: item.$3)
     ]);
   }
@@ -772,51 +1086,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                   ctx,
                   MaterialPageRoute(
-                      builder: (_) => const InstagramGridScreen()));
+                      builder: (_) => const ArticleListScreen()));
             },
             child: const Icon(Icons.chevron_right, color: kTextSec)),
       ]),
     );
   }
 
-  // ──────────────────────────────────────────────────────────
-  // INSTAGRAM LIST
-  // ──────────────────────────────────────────────────────────
-  Widget _buildInstagramList(BuildContext ctx) {
-    if (_elfsightWebViewController == null) {
-      return Container(
-        height: 160,
-        decoration: BoxDecoration(
-          color: kBgCard,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: kGold.withValues(alpha: 0.3)),
-        ),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.web, color: kGoldDim, size: 48),
-            SizedBox(height: 12),
-            Text('Ikuti kabar dan kegiatan Markaz di Instagram.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: MarkazColors.muted, fontSize: 13)),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      height:
-          480, // Memberikan batasan tinggi agar WebView bisa memuat konten embed
-      decoration: BoxDecoration(
-        color: kBgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kGold.withValues(alpha: 0.3)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: WebViewWidget(controller: _elfsightWebViewController!),
-    );
-  }
 
   // ──────────────────────────────────────────────────────────
   // IKUTI KAMI (logo sosmed)

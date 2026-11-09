@@ -67,7 +67,7 @@ class WelcomePanel extends StatelessWidget {
                   style:
                       const TextStyle(fontSize: 13, color: MarkazColors.muted)),
               const SizedBox(height: 10),
-              Text(name ?? 'Selamat datang di portal Markaz Arabiyah',
+              Text(name ?? 'Selamat datang di portal Markaz Arabiyah Tech',
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall

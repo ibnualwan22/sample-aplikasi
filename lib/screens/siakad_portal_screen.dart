@@ -41,7 +41,7 @@ class _Portal extends State<SiakadPortalScreen> {
   @override
   void initState() {
     super.initState();
-    pending = widget.resultRequest > 0 || widget.initialFeature == 'Hasil Tes';
+    pending = widget.resultRequest > 0 || widget.initialFeature != null;
     api.onExpired = expired;
     push.pendingLink.addListener(_onPendingLink);
     restore();
@@ -96,8 +96,14 @@ class _Portal extends State<SiakadPortalScreen> {
       me = data;
       error = null;
       if (pending) {
-        detail = 'Hasil Tes';
-        tab = 1;
+        // Fitur awal yang diminta pemanggil (mis. 'Pengumuman' dari lonceng
+        // Beranda, 'Daftar ulang' dari tile Pendaftaran); tanpa itu,
+        // perilaku lama: buka 'Hasil Tes'.
+        final target = widget.initialFeature ?? 'Hasil Tes';
+        final matches =
+            features.where((f) => f.title == target).toList();
+        detail = matches.isNotEmpty ? matches.first.title : 'Hasil Tes';
+        tab = matches.isNotEmpty ? matches.first.tab : 1;
         pending = false;
       }
     });

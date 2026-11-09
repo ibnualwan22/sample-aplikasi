@@ -79,7 +79,7 @@ void main() {
       });
       await t.pump();
       expect(t.takeException(), isNull);
-      expect(find.text('Selamat datang di portal Markaz Arabiyah'),
+      expect(find.text('Selamat datang di portal Markaz Arabiyah Tech'),
           findsOneWidget);
       if (width == 390) await screenshot(t, 'beranda');
     }

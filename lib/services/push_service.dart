@@ -10,11 +10,19 @@ import '../siakad/api.dart';
 
 /// Channel notifikasi pengumuman (Android): importance HIGH supaya tampil
 /// sebagai heads-up di layar, seperti WhatsApp. Dibuat sekali (idempotent);
-/// Android tidak mengubah importance channel yang sudah ada, jadi id ini
-/// harus baru (bukan channel bawaan FCM).
-const String pengumumanChannelId = 'pengumuman';
+/// Android tidak mengubah importance maupun suara channel yang sudah ada,
+/// jadi id ini harus baru (bukan channel bawaan FCM, bukan channel lama).
+/// Channel baru 'pengumuman_v3' (batch 1.0.6+8) memakai suara khusus
+/// res/raw/three_bright_notes.mp3; channel 'pengumuman_v2' (1.0.6+7)
+/// ditinggalkan karena terlanjur dibuat TANPA suara di HP (file suara
+/// dibuang shrinker R8) dan suara channel Android tak bisa diubah
+/// setelah dibuat. keep.xml menjaga file suara tetap ada di APK.
+const String pengumumanChannelId = 'pengumuman_v3';
 const String pengumumanChannelName = 'Pengumuman';
 const String pengumumanChannelDescription = 'Pengumuman dari Siakad';
+
+/// Suara channel pengumuman (nama resource di res/raw, tanpa ekstensi).
+const String pengumumanSoundName = 'three_bright_notes';
 
 /// Isi notifikasi lokal untuk satu pengumuman (fungsi murni agar mudah diuji).
 class PengumumanNotificationContent {
@@ -198,6 +206,7 @@ class SantriPush {
           pengumumanChannelName,
           description: pengumumanChannelDescription,
           importance: Importance.high,
+          sound: RawResourceAndroidNotificationSound(pengumumanSoundName),
         ));
   }
 
@@ -230,6 +239,8 @@ class SantriPush {
             channelDescription: pengumumanChannelDescription,
             importance: Importance.high,
             priority: Priority.high,
+            sound: const RawResourceAndroidNotificationSound(
+                pengumumanSoundName),
             styleInformation: BigTextStyleInformation(
               content.body,
               htmlFormatBigText: true,

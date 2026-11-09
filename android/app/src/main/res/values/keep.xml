@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jaga suara notifikasi pengumuman dari resource shrinker (R8): file
+     raw/three_bright_notes.mp3 hanya dirujuk lewat nama (string) dari
+     flutter_local_notifications, jadi analisis statis menganggapnya tak
+     terpakai dan membuangnya dari APK rilis. Akibatnya plugin menolak
+     show() (hasInvalidRawSoundResource) dan pop-up notifikasi tidak
+     tampil sama sekali (kejadian di 1.0.6+7). Tanpa tools:keep ini,
+     suara akan hilang lagi di setiap build rilis. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/three_bright_notes" />

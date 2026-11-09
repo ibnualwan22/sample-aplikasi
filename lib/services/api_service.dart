@@ -154,22 +154,34 @@ class ApiService {
 
   // Mengambil daftar artikel dari WordPress markazarabiyah.com (data live).
   // Duplikat lama SMA Al-Falah (28 Agu 2026) disaring — yang dipakai yang
-  // terbaru (14 Sep 2026).
-  static Future<List<dynamic>?> getArticles() async {
-    try {
-      final response = await http
-          .get(Uri.parse(kArticlesApiUrl))
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode == 200) {
-        final list = jsonDecode(response.body) as List<dynamic>;
-        return list
-            .where((a) => a['slug'] != kDuplicateAlFalahSlug)
-            .toList();
+  // terbaru (14 Sep 2026). Dua kali percobaan + cache terakhir: di koneksi
+  // lambat, muatan 100 artikel (~430KB) gampang melewati batas 20 detik,
+  // jadi carousel memakai perPage kecil dan daftar terakhir yang berhasil
+  // tetap ditampilkan daripada layar error kosong.
+  static List<dynamic>? _cachedArticles;
+
+  static Future<List<dynamic>?> getArticles({int perPage = 100}) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http
+            .get(Uri.parse(articlesApiUrl(perPage: perPage)))
+            .timeout(const Duration(seconds: 20));
+        if (response.statusCode == 200) {
+          final list = jsonDecode(response.body) as List<dynamic>;
+          final filtered = list
+              .where((a) => a['slug'] != kDuplicateAlFalahSlug)
+              .toList();
+          _cachedArticles = filtered;
+          return filtered;
+        }
+      } catch (e) {
+        print('Error getArticles (percobaan ${attempt + 1}): $e');
+        if (attempt == 0) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
       }
-    } catch (e) {
-      print('Error getArticles: $e');
     }
-    return null;
+    return _cachedArticles;
   }
 
   // ── Tafsir dari quran.com API ────────────────────────────────────

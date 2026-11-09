@@ -100,21 +100,31 @@ extension _Services on _Page {
 
   /// Buka satu pengumuman: tandai dibaca di server, turunkan badge bel,
   /// lalu tampilkan isi lengkap + tautannya (bila tautan eksternal).
+  /// Optimistis: warna + badge diubah LANGSUNG, jangan tunggu server —
+  /// di koneksi lambat konfirmasi POST telat/gagal diam-diam sehingga
+  /// warna baru berubah setelah refresh. Bila POST gagal, kembalikan
+  /// tampilan belum dibaca.
   Future<void> _openPengumuman(Json p) async {
     if (p['sudahDibaca'] != true) {
+      if (mounted) {
+        updateView(() {
+          p['sudahDibaca'] = true;
+          SantriPush.unreadCount.value =
+              (SantriPush.unreadCount.value - 1).clamp(0, 1 << 30);
+        });
+      }
       try {
         await get(
             'pengumuman/${Uri.encodeComponent(val(p['id']))}/baca',
             method: 'POST');
+      } catch (_) {
         if (mounted) {
           updateView(() {
-            p['sudahDibaca'] = true;
+            p['sudahDibaca'] = false;
             SantriPush.unreadCount.value =
-                (SantriPush.unreadCount.value - 1).clamp(0, 1 << 30);
+                SantriPush.unreadCount.value + 1;
           });
         }
-      } catch (_) {
-        // Gagal menandai dibaca: isi tetap dibuka.
       }
     }
     if (!mounted) return;
@@ -447,7 +457,9 @@ extension _Services on _Page {
                       maxLines: 3, overflow: TextOverflow.ellipsis),
                   tile(val(p['pengirimLabel']), date(p['dibuatAt'])),
                 ],
-                    badge: p['sudahDibaca'] != true ? badge('Baru') : null)),
+                    // Butir 4: belum dibaca → latar beda (tinted) ala Facebook.
+                    badge: p['sudahDibaca'] != true ? badge('Baru') : null,
+                    tinted: p['sudahDibaca'] != true)),
         ];
       case 'Pemilihan':
         final s = obj(data['sesi']);
