@@ -2,7 +2,6 @@ import '../theme/markaz_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:paper_curl/paper_curl.dart';
 import '../data/quran_pages.dart';
 import '../services/quran_image_cache_manager.dart';
 
@@ -21,7 +20,7 @@ class MushafViewerScreen extends StatefulWidget {
 }
 
 class _MushafViewerScreenState extends State<MushafViewerScreen> {
-  late final PageCurlController _ctrl;
+  late final PageController _ctrl;
   late int _currentPage;
   bool _showOverlay = true;
 
@@ -29,17 +28,13 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   void initState() {
     super.initState();
     _currentPage = widget.initialPage.clamp(1, kTotalMushafPages);
-    // RTL: indeks paper_curl DIBALIK — indeks widget i = halaman mushaf
-    // (kTotalMushafPages - i). paper_curl itu LTR (sudut di tepi kanan,
-    // seret kiri = maju). Supaya mushaf terasa seperti buku asli — lembaran
-    // terangkat dari KIRI dan terlipat ke KANAN, seret kiri tetap = halaman
-    // berikut — tiga hal dipakai bersama: (1) PageCurlView dicerminkan
-    // (Transform.flip), (2) indeks dibalik, (3) isi tiap halaman dicerminkan
-    // kembali supaya teks tidak terbalik. Trik cermin ganda di 1.0.6+7 gagal
-    // karena HANYA (1)+(3) tanpa (2): seret kiri malah mundur. Dengan (2),
-    // seret kiri (fisik) = putaran mundur di widget = indeks widget turun =
-    // halaman mushaf naik = halaman berikut.
-    _ctrl = PageCurlController(initialPage: kTotalMushafPages - _currentPage);
+    // Animasi kertas (paper_curl) DIHAPUS 11 Nov 2026 atas perintah user:
+    // sulit di-RTL-kan (cermin ganda + indeks terbalik, arah lipat tak
+    // kunjung benar) — dikerjakan lagi kapan-kapan. Penggantinya PageView
+    // polos dengan reverse: true — halaman 0 di kanan, geser kiri =
+    // halaman berikut, persis arah baca mushaf. Tanpa cermin, tanpa
+    // indeks terbalik: indeks widget i = halaman mushaf (i + 1).
+    _ctrl = PageController(initialPage: _currentPage - 1);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -62,16 +57,18 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   void _goToPage(int page) {
     final p = page.clamp(1, kTotalMushafPages);
     if (MediaQuery.disableAnimationsOf(context)) {
-      // Lompat langsung: indeks widget = total - halaman mushaf.
-      _ctrl.jumpToPage(kTotalMushafPages - p);
+      _ctrl.jumpToPage(p - 1);
     } else if (p == _currentPage + 1) {
-      // Satu halaman maju: di widget (indeks terbalik) ini putaran mundur.
-      // Animasi curl-nya: lembaran terangkat dari kiri, terlipat ke kanan.
-      _ctrl.previousPage();
+      // Satu halaman maju (di PageView reverse, ini geser ke kiri).
+      _ctrl.nextPage(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut);
     } else if (p == _currentPage - 1) {
-      _ctrl.nextPage();
+      _ctrl.previousPage(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut);
     } else {
-      _ctrl.jumpToPage(kTotalMushafPages - p);
+      _ctrl.jumpToPage(p - 1);
     }
   }
 
@@ -149,26 +146,19 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
         onTap: () => setState(() => _showOverlay = !_showOverlay),
         child: Stack(
           children: [
-            // ── PageCurl RTL: cermin + indeks terbalik (lihat initState).
-            // Seret kiri = halaman berikut; lembaran terangkat dari kiri
-            // dan terlipat ke kanan seperti mushaf asli. Isi halaman
-            // dicerminkan kembali supaya gambar mushaf tidak terbalik.
-            Transform.flip(
-              flipX: true,
-              child: PageCurlView(
-                controller: _ctrl,
-                itemCount: kTotalMushafPages,
-                pageColor: MarkazColors.ivory,
-                onPageChanged: (i) {
-                  final page = kTotalMushafPages - i;
-                  setState(() => _currentPage = page);
-                  _precache(page);
-                },
-                itemBuilder: (context, index) => Transform.flip(
-                  flipX: true,
-                  child: _buildPage(kTotalMushafPages - index),
-                ),
-              ),
+            // ── PageView polos (tanpa animasi kertas): geser kiri =
+            // halaman berikut (RTL via reverse). Animasi curl dihapus
+            // 11 Nov — dikerjakan lagi kapan-kapan.
+            PageView.builder(
+              controller: _ctrl,
+              reverse: true,
+              itemCount: kTotalMushafPages,
+              onPageChanged: (i) {
+                final page = i + 1;
+                setState(() => _currentPage = page);
+                _precache(page);
+              },
+              itemBuilder: (context, index) => _buildPage(index + 1),
             ),
 
             // ── Overlay ──────────────────────────────────────────────────────

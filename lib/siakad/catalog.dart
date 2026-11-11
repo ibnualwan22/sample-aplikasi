@@ -4,6 +4,7 @@ typedef Feature = ({String title, IconData icon, int tab, String? role});
 const features = <Feature>[
   (title: 'Nilai', icon: Icons.description_rounded, tab: 1, role: null),
   (title: 'Absensi', icon: Icons.event_available_rounded, tab: 1, role: null),
+  (title: 'Qism Ubudiyah', icon: Icons.event_available_rounded, tab: 1, role: 'isQismUbudiyah'),
   (title: 'Ujian', icon: Icons.quiz_rounded, tab: 1, role: null),
   (title: 'QR Saya', icon: Icons.qr_code_rounded, tab: 2, role: null),
   (title: 'Perizinan', icon: Icons.assignment_rounded, tab: 2, role: null),

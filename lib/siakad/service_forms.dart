@@ -1,8 +1,10 @@
 import '../widgets/markaz_components.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/markaz_theme.dart';
 import 'api.dart';
+import 'tata_tertib_perizinan.dart';
 
 /// A single draft survives nested pickers and recoverable submission failures.
 class ServiceRequestForm extends StatefulWidget {
@@ -24,7 +26,7 @@ class ServiceRequestForm extends StatefulWidget {
 class _RequestForm extends State<ServiceRequestForm> {
   final form = GlobalKey<FormState>();
   final reason = TextEditingController(), place = TextEditingController();
-  String type = 'HARIAN';
+  String type = 'KELUAR_PARE';
   bool group = false, busy = false;
   String? error;
   DateTime start = DateTime.now();
@@ -32,14 +34,36 @@ class _RequestForm extends State<ServiceRequestForm> {
   TimeOfDay time = TimeOfDay.now();
   Map<String, Json> people = {};
   Json? reporter;
+  bool _agreed = false;
+  /// Jenis yang boleh diajukan dari aplikasi — Harian dan Ta'birot hanya
+  /// dibuat admin (server menolak keduanya; sama seperti form web).
   static const types = {
-    'HARIAN': 'Harian',
-    'BERHARI_HARI': 'Berhari-hari',
     'KELUAR_PARE': 'Keluar Pare',
-    'TABIROT': 'Tabirot'
+    'BERHARI_HARI': 'Berhari-hari',
   };
   String date(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
   String iso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+  @override
+  void initState() {
+    super.initState();
+    if (widget.permit) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _maybeShowAgreement());
+    }
+  }
+
+  /// Gerbang persetujuan pertama kali (persis form web): baca tata tertib
+  /// sampai bawah, centang, baru "Saya Setuju & Lanjutkan". Persetujuan
+  /// tersimpan sekali; pengajuan juga dicek sebelum dikirim.
+  Future<void> _maybeShowAgreement() async {
+    final prefs = await SharedPreferences.getInstance();
+    final agreed = prefs.getBool(perizinanAgreedKey) == true;
+    if (!mounted) return;
+    setState(() => _agreed = agreed);
+    if (agreed) return;
+    final ok = await showTataTertibPerizinan(context, requireAgreement: true);
+    if (ok == true && mounted) setState(() => _agreed = true);
+  }
   @override
   void dispose() {
     reason.dispose();
@@ -94,6 +118,12 @@ class _RequestForm extends State<ServiceRequestForm> {
 
   Future<void> submit() async {
     if (busy || !form.currentState!.validate()) return;
+    if (widget.permit && !_agreed) {
+      final ok =
+          await showTataTertibPerizinan(context, requireAgreement: true);
+      if (ok != true || !mounted) return;
+      setState(() => _agreed = true);
+    }
     if ((!widget.permit || group) && people.isEmpty) {
       setState(() => error = 'Pilih minimal satu santri.');
       return;
@@ -216,17 +246,36 @@ class _RequestForm extends State<ServiceRequestForm> {
                                 style: TextStyle(color: MarkazColors.muted)),
                             const SizedBox(height: 24),
                             if (widget.permit) ...[
-                              DropdownButtonFormField<String>(
-                                  initialValue: type,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                      labelText: 'Jenis izin'),
-                                  items: [
-                                    for (final t in types.entries)
-                                      DropdownMenuItem(
-                                          value: t.key, child: Text(t.value))
-                                  ],
-                                  onChanged: (v) => setState(() => type = v!)),
+                              Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                      onPressed: () =>
+                                          showTataTertibPerizinan(context),
+                                      icon: const Icon(
+                                          Icons.menu_book_rounded),
+                                      label: const Text(
+                                          'Lihat Tata Tertib Perizinan'))),
+                              const SizedBox(height: 8),
+                              Row(children: [
+                                for (final t in types.entries)
+                                  Expanded(
+                                      child: Padding(
+                                          padding: EdgeInsets.only(
+                                              left: t.key == 'KELUAR_PARE'
+                                                  ? 0
+                                                  : 4,
+                                              right: t.key == 'KELUAR_PARE'
+                                                  ? 4
+                                                  : 0),
+                                          child: type == t.key
+                                              ? FilledButton(
+                                                  onPressed: () {},
+                                                  child: Text(t.value))
+                                              : OutlinedButton(
+                                                  onPressed: () => setState(
+                                                      () => type = t.key),
+                                                  child: Text(t.value))))
+                              ]),
                               const SizedBox(height: 16),
                               SwitchListTile.adaptive(
                                   contentPadding: EdgeInsets.zero,

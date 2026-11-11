@@ -9,6 +9,7 @@ import 'package:sample_aplikasi/siakad/catalog.dart';
 import 'package:sample_aplikasi/siakad/features.dart';
 import 'package:sample_aplikasi/siakad/exam.dart';
 import 'package:sample_aplikasi/siakad/service_forms.dart';
+import 'package:sample_aplikasi/siakad/tata_tertib_perizinan.dart';
 import 'package:sample_aplikasi/screens/quran_screen.dart';
 import 'package:sample_aplikasi/screens/calendar_screen.dart';
 import 'package:sample_aplikasi/screens/siakad_portal_screen.dart';
@@ -79,6 +80,26 @@ const fixture = <String, dynamic>{
         'total': 10
       },
       'absenTabirot': [],
+      'rekapAbsenUbudiyah': {
+        'tepatWaktu': 12,
+        'masbuq': 2,
+        'ghoib': 1,
+        'total': 15
+      },
+      'absenUbudiyah': [
+        {
+          'tanggal': '2026-11-11',
+          'kegiatan': 'SUBUH',
+          'status': 'TEPAT_WAKTU',
+          'keterangan': null
+        },
+        {
+          'tanggal': '2026-11-11',
+          'kegiatan': 'MAGHRIB',
+          'status': 'MASBUQ_1',
+          'keterangan': 'Terlambat bangun'
+        },
+      ],
     }
   ],
   'menu': {
@@ -96,7 +117,7 @@ void main() {
     dotenv.testLoad(fileInput: '');
   });
   testWidgets(
-      'All 19 catalog features and account render at 320dp / 200%, with error recovery',
+      'All 20 catalog features and account render at 320dp / 200%, with error recovery',
       (t) async {
     t.view.physicalSize = const Size(320, 800);
     t.view.devicePixelRatio = 1;
@@ -173,6 +194,10 @@ void main() {
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.resetPhysicalSize);
     addTearDown(t.view.resetDevicePixelRatio);
+    // Gerbang persetujuan sudah dilewati (diuji terpisah di
+    // perizinan_agreement_test.dart) agar tes ini fokus pada picker
+    // anggota kelompok.
+    SharedPreferences.setMockInitialValues({perizinanAgreedKey: true});
     await t.pumpWidget(app(
         ServiceRequestForm(
             permit: true,
@@ -187,7 +212,9 @@ void main() {
             onSubmit: (_) async {}),
         scale: 2));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.byType(SwitchListTile));
+    // Saklar berada di bawah lipatan form (teks besar) dan ListView
+    // membangun anaknya secara malas — scroll dulu sampai ter-build.
+    await t.scrollUntilVisible(find.byType(SwitchListTile), 300);
     await t.pumpAndSettle();
     await t.tap(find.byType(SwitchListTile));
     await t.pumpAndSettle();

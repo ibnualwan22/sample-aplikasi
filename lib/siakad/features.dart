@@ -49,6 +49,11 @@ class _Page extends State<FeaturePage> {
   String attendanceCategory = 'Kelas';
   String recordFilter = 'Semua';
   String searchQuery = '';
+  // Ubudiyah (Qism): kegiatan terpilih + draf absen hari ini.
+  // Kunci draf: '<kegiatan>:<riwayatId>'.
+  String ubudiyahKegiatan = 'SUBUH';
+  Map<String, String> ubudiyahDraft = {};
+  Map<String, String> ubudiyahKet = {};
   void updateView(VoidCallback change) => setState(change);
   List<LatLng> route = [];
   void updateRoute(List<LatLng> points) => setState(() => route = points);
@@ -131,6 +136,7 @@ class _Page extends State<FeaturePage> {
         'Ujian': 'ujian',
         'Tauzi’ Fushul': 'me/tauzi',
         'Pengumuman': 'pengumuman',
+        'Qism Ubudiyah': 'ubudiyah',
         'Akun': 'me/status'
       }[name] ??
       'me';
@@ -191,11 +197,34 @@ class _Page extends State<FeaturePage> {
           data = d;
           extra = x;
           if (endpoint == 'me') profile = obj(d);
+          if (name == 'Qism Ubudiyah') _initUbudiyahDrafts(d);
         });
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  /// Isi draf absen Ubudiyah dari data server (absenHariIni); santri yang
+  /// belum tersimpan memakai bawaan (tepat waktu / hadir).
+  void _initUbudiyahDrafts(Json d) {
+    final saved = obj(d['absenHariIni']);
+    final list = rows(d['santriList']);
+    ubudiyahDraft = {};
+    ubudiyahKet = {};
+    for (final k in ['SUBUH', 'MAGHRIB', 'ISYA', 'HALAQOH']) {
+      final perKegiatan = obj(saved[k]);
+      for (final s in list) {
+        final id = val(s['riwayatId']);
+        final row = obj(perKegiatan[id]);
+        final st = row['status'];
+        ubudiyahDraft['$k:$id'] = st is String && st.isNotEmpty
+            ? st
+            : (k == 'HALAQOH' ? 'HADIR' : 'TEPAT_WAKTU');
+        final kt = row['keterangan'];
+        ubudiyahKet['$k:$id'] = kt is String ? kt : '';
+      }
     }
   }
 
@@ -429,6 +458,11 @@ class _Page extends State<FeaturePage> {
         'Pengumuman',
         'Pengumuman dari pengurus dan admin — ketuk untuk membaca dan membuka tautannya.'
       ),
+      'Qism Ubudiyah': (
+        Icons.event_available_rounded,
+        'Qism Ubudiyah',
+        'Absen kegiatan wajib sakan hari ini — Subuh, Maghrib, Isya, dan Halaqoh.'
+      ),
       'Akun': (
         Icons.person_outline_rounded,
         'Informasi akun',
@@ -508,7 +542,7 @@ class _Page extends State<FeaturePage> {
                   })
               ]
             : content();
-    return RefreshIndicator(
+    final list = RefreshIndicator(
         onRefresh: load,
         child: ListView(
             padding: const EdgeInsets.all(18),
@@ -523,12 +557,19 @@ class _Page extends State<FeaturePage> {
               else
                 ...cs
             ]));
+    // Ubudiyah: tombol Simpan menempel di bawah (tidak ikut scroll).
+    if (name == 'Qism Ubudiyah' && !loading && error == null) {
+      return Column(children: [Expanded(child: list), _ubudiyahSaveBar()]);
+    }
+    return list;
   }
 
   List<Widget> content() {
     switch (name) {
       case 'Absensi':
         return attendanceView();
+      case 'Qism Ubudiyah':
+        return ubudiyahView();
       case 'Nilai':
         return gradesView();
       case 'Riwayat':

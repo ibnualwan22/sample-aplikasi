@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sample_aplikasi/theme/markaz_theme.dart';
 import 'package:sample_aplikasi/widgets/coming_soon_dialog.dart';
@@ -13,6 +14,7 @@ import 'package:sample_aplikasi/screens/main_layout.dart';
 import 'package:sample_aplikasi/screens/siakad_portal_screen.dart';
 import 'package:sample_aplikasi/siakad/features.dart';
 import 'package:sample_aplikasi/siakad/service_forms.dart';
+import 'package:sample_aplikasi/siakad/tata_tertib_perizinan.dart';
 import 'package:sample_aplikasi/siakad/api.dart';
 import 'widget_test.dart' show DemoApi;
 
@@ -48,6 +50,7 @@ Future<void> screenshot(WidgetTester t, String name) async {
 
 void main() {
   setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
     await initializeDateFormatting('id_ID');
     await (FontLoader('MaterialIcons')
           ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
@@ -122,6 +125,9 @@ void main() {
     addTearDown(t.view.resetDevicePixelRatio);
     addTearDown(t.view.resetPhysicalSize);
     Json? submitted;
+    // Gerbang persetujuan sudah dilewati di tes ini (diuji terpisah di
+    // perizinan_agreement_test.dart) agar tes ini fokus pada draft form.
+    SharedPreferences.setMockInitialValues({perizinanAgreedKey: true});
     await t.pumpWidget(app(RepaintBoundary(
         child: ServiceRequestForm(
             permit: true,
