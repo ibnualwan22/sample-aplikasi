@@ -421,6 +421,11 @@ void main() {
         find.byKey(const ValueKey('profile-photo-placeholder')));
     expect(photo.child, isNull);
     await t.scrollUntilVisible(find.text('Ubah bulan belajar'), 250);
+    // Tunggu animasi gulir (ensureVisible) selesai SEBELUM mengetuk:
+    // scrollUntilVisible berhenti begitu widget masuk ke cacheExtent
+    // ListView — saat itu posisinya masih di bawah lipatan (y≈706 di
+    // jendela 600), sehingga ketukan meleset dan dialog tidak terbuka.
+    await t.pumpAndSettle();
     await t.tap(find.text('Ubah bulan belajar'));
     await t.pumpAndSettle();
     await t.enterText(find.byType(TextFormField), '0');

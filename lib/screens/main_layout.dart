@@ -2,6 +2,7 @@ import '../widgets/markaz_components.dart';
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'quran_screen.dart';
+import 'settings_screen.dart';
 import 'siakad_portal_screen.dart';
 import 'calendar_screen.dart';
 
@@ -48,15 +49,7 @@ class _MainLayoutState extends State<MainLayout> {
       case 3:
         return const CalendarScreen();
       default:
-        return Scaffold(
-            appBar: AppBar(title: const Text('Setelan')),
-            body: ListView(children: const [
-              MarkazState(
-                  title: 'Setelan sedang disiapkan',
-                  message:
-                      'Tema putih–emas mengikuti tampilan aplikasi. Pengaturan akun santri tersedia di menu Akun dalam SIAKAD.',
-                  pose: MascotPose.unavailable),
-            ]));
+        return const SettingsScreen();
     }
   }
 

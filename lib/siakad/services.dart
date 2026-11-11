@@ -104,26 +104,58 @@ extension _Services on _Page {
   /// di koneksi lambat konfirmasi POST telat/gagal diam-diam sehingga
   /// warna baru berubah setelah refresh. Bila POST gagal, kembalikan
   /// tampilan belum dibaca.
+  ///
+  /// PENTING: status dibaca ditulis ke data MENTAH (data['items']), BUKAN
+  /// ke salinan rows() — rows() menyalin tiap Map (obj = Map.from), jadi
+  /// mengubah salinan hilang begitu daftar di-build ulang (itulah kenapa
+  /// warna baru berubah setelah refresh). Mengubah data mentah membuat
+  /// salinan berikutnya ikut membawa status dibaca.
   Future<void> _openPengumuman(Json p) async {
     if (p['sudahDibaca'] != true) {
+      final id = val(p['id']);
+      // Entri mentah yang sama di data['items'] (bila ada).
+      Map? raw;
+      final items = data['items'];
+      if (items is List) {
+        for (final e in items) {
+          if (e is Map && val(e['id']) == id) {
+            raw = e;
+            break;
+          }
+        }
+      }
+      void setRead(bool read) {
+        if (raw != null) raw['sudahDibaca'] = read;
+        p['sudahDibaca'] = read;
+        final belum = data['jumlahBelumDibaca'];
+        if (belum is num) {
+          data['jumlahBelumDibaca'] =
+              (belum + (read ? -1 : 1)).clamp(0, 1 << 30);
+        }
+      }
+
       if (mounted) {
         updateView(() {
-          p['sudahDibaca'] = true;
+          setRead(true);
           SantriPush.unreadCount.value =
               (SantriPush.unreadCount.value - 1).clamp(0, 1 << 30);
         });
+      } else {
+        setRead(true);
       }
       try {
         await get(
-            'pengumuman/${Uri.encodeComponent(val(p['id']))}/baca',
+            'pengumuman/${Uri.encodeComponent(id)}/baca',
             method: 'POST');
       } catch (_) {
         if (mounted) {
           updateView(() {
-            p['sudahDibaca'] = false;
+            setRead(false);
             SantriPush.unreadCount.value =
                 SantriPush.unreadCount.value + 1;
           });
+        } else {
+          setRead(false);
         }
       }
     }

@@ -29,8 +29,17 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   void initState() {
     super.initState();
     _currentPage = widget.initialPage.clamp(1, kTotalMushafPages);
-    // Index dalam PageCurlView = halaman - 1
-    _ctrl = PageCurlController(initialPage: _currentPage - 1);
+    // RTL: indeks paper_curl DIBALIK — indeks widget i = halaman mushaf
+    // (kTotalMushafPages - i). paper_curl itu LTR (sudut di tepi kanan,
+    // seret kiri = maju). Supaya mushaf terasa seperti buku asli — lembaran
+    // terangkat dari KIRI dan terlipat ke KANAN, seret kiri tetap = halaman
+    // berikut — tiga hal dipakai bersama: (1) PageCurlView dicerminkan
+    // (Transform.flip), (2) indeks dibalik, (3) isi tiap halaman dicerminkan
+    // kembali supaya teks tidak terbalik. Trik cermin ganda di 1.0.6+7 gagal
+    // karena HANYA (1)+(3) tanpa (2): seret kiri malah mundur. Dengan (2),
+    // seret kiri (fisik) = putaran mundur di widget = indeks widget turun =
+    // halaman mushaf naik = halaman berikut.
+    _ctrl = PageCurlController(initialPage: kTotalMushafPages - _currentPage);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -41,11 +50,11 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
     super.dispose();
   }
 
-  void _precache(int currentIndex) {
+  void _precache(int currentPage) {
     for (final d in [-2, -1, 1, 2]) {
-      final n = currentIndex + d;
-      if (n >= 0 && n < kTotalMushafPages) {
-        precacheImage(NetworkImage(mushafPageUrl(n + 1)), context);
+      final p = currentPage + d;
+      if (p >= 1 && p <= kTotalMushafPages) {
+        precacheImage(NetworkImage(mushafPageUrl(p)), context);
       }
     }
   }
@@ -53,14 +62,16 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
   void _goToPage(int page) {
     final p = page.clamp(1, kTotalMushafPages);
     if (MediaQuery.disableAnimationsOf(context)) {
-      _ctrl.jumpToPage(p - 1);
+      // Lompat langsung: indeks widget = total - halaman mushaf.
+      _ctrl.jumpToPage(kTotalMushafPages - p);
     } else if (p == _currentPage + 1) {
-      // Satu halaman maju: lengkungkan sudut (animasi curl).
-      _ctrl.nextPage();
-    } else if (p == _currentPage - 1) {
+      // Satu halaman maju: di widget (indeks terbalik) ini putaran mundur.
+      // Animasi curl-nya: lembaran terangkat dari kiri, terlipat ke kanan.
       _ctrl.previousPage();
+    } else if (p == _currentPage - 1) {
+      _ctrl.nextPage();
     } else {
-      _ctrl.jumpToPage(p - 1);
+      _ctrl.jumpToPage(kTotalMushafPages - p);
     }
   }
 
@@ -138,22 +149,26 @@ class _MushafViewerScreenState extends State<MushafViewerScreen> {
         onTap: () => setState(() => _showOverlay = !_showOverlay),
         child: Stack(
           children: [
-            // ── PageCurl (butir 9, opsi B): curl sungguhan seperti buku.
-            // RTL "membuka Al-Qur'an dari kanan ke kiri": arah alami
-            // paper_curl sudah cocok — sentuh separuh kanan + seret ke
-            // kiri = halaman berikut, lembaran terangkat dari kanan dan
-            // terlipat ke kiri. Trik cermin ganda (1.0.6+7) DIBUANG karena
-            // membalik arah geser dibanding tampilan lama (seret kiri
-            // malah mundur) — itulah yang terasa "kebalik" di HP.
-            PageCurlView(
-              controller: _ctrl,
-              itemCount: kTotalMushafPages,
-              pageColor: MarkazColors.ivory,
-              onPageChanged: (i) {
-                setState(() => _currentPage = i + 1);
-                _precache(i);
-              },
-              itemBuilder: (context, index) => _buildPage(index + 1),
+            // ── PageCurl RTL: cermin + indeks terbalik (lihat initState).
+            // Seret kiri = halaman berikut; lembaran terangkat dari kiri
+            // dan terlipat ke kanan seperti mushaf asli. Isi halaman
+            // dicerminkan kembali supaya gambar mushaf tidak terbalik.
+            Transform.flip(
+              flipX: true,
+              child: PageCurlView(
+                controller: _ctrl,
+                itemCount: kTotalMushafPages,
+                pageColor: MarkazColors.ivory,
+                onPageChanged: (i) {
+                  final page = kTotalMushafPages - i;
+                  setState(() => _currentPage = page);
+                  _precache(page);
+                },
+                itemBuilder: (context, index) => Transform.flip(
+                  flipX: true,
+                  child: _buildPage(kTotalMushafPages - index),
+                ),
+              ),
             ),
 
             // ── Overlay ──────────────────────────────────────────────────────

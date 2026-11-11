@@ -105,7 +105,18 @@ extension _ProfileView on _Page {
           {bool danger = false}) =>
       Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: ListTile(
+          // Material sendiri di sini WAJIB: ListTile melukis latar + ink
+          // splash pada Material terdekat. Tanpa ini, Container grup (yang
+          // punya warna latar) menyembunyikannya dan Flutter melempar
+          // assertion di debug — aksi jadi tidak bisa dibangun/diketuk
+          // (itulah kenapa tes profil gagal: dialog 'Ubah bulan belajar'
+          // tidak pernah terbuka). Warna transparan supaya latar grup tetap
+          // yang terlihat; bentuk + clip mengikuti sudut ListTile.
+          child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
               contentPadding:
@@ -120,7 +131,7 @@ extension _ProfileView on _Page {
               trailing:
                   danger ? null : const Icon(Icons.chevron_right, size: 20),
               enabled: !working,
-              onTap: () => run(fn)));
+              onTap: () => run(fn))));
 
   Future<void> editStudyMonth() async {
     final form = GlobalKey<FormState>();

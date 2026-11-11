@@ -1,4 +1,5 @@
 import '../widgets/markaz_components.dart';
+import '../widgets/qr_brightness.dart';
 import '../theme/markaz_theme.dart';
 import 'service_forms.dart';
 import 'dart:async';
@@ -562,10 +563,11 @@ class _Page extends State<FeaturePage> {
             if (val(data['payload']) != '—')
               Center(
                   child: LayoutBuilder(
-                      builder: (_, box) => QrImageView(
-                          data: val(data['payload']),
-                          size: box.maxWidth < 240 ? box.maxWidth : 240,
-                          backgroundColor: Colors.white)))
+                      builder: (_, box) => QrBrightness(
+                          child: QrImageView(
+                              data: val(data['payload']),
+                              size: box.maxWidth < 240 ? box.maxWidth : 240,
+                              backgroundColor: Colors.white))))
             else
               const Text(
                   'QR belum tersedia. Tarik halaman untuk memuat ulang.'),
