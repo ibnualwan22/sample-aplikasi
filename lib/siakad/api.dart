@@ -41,12 +41,7 @@ class SantriApi {
     session = null;
     tauzi = null;
     await vault.delete(key: key);
-    for (final k in (await vault.readAll())
-        .keys
-        .where((k) => k.startsWith("siakad.exam."))
-        .toList()) {
-      await vault.delete(key: k);
-    }
+    // Exam journals survive session expiration/logout; scoped by origin and owner.
   }
 
   Future<dynamic> call(String path, {String method = 'GET', Json? body}) async {

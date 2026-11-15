@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -235,6 +236,9 @@ void main() {
 
   testWidgets('Exam types keep usable controls on narrow screen and large text',
       (t) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('markaz/exam'),
+            (call) async => call.method == 'end' ? null : true);
     FlutterSecureStorage.setMockInitialValues({});
     t.view.physicalSize = const Size(320, 900);
     t.view.devicePixelRatio = 1;
@@ -335,7 +339,24 @@ void main() {
           'rightItems': ['Kanan']
         }
       },
-      {'tipeSoal': 'ESSAY'},
+      for (final type in [
+        'ESSAY',
+        'ESSAY_SINGKAT',
+        'ESSAY_ARAB',
+        'ESSAY_PANJANG',
+        'ESSAY_GAMBAR',
+        'ISIAN_SAMPING',
+        'ISIAN_BAWAH',
+        'KITABAH'
+      ])
+        {'tipeSoal': type},
+      for (final type in ['BENAR_SALAH', 'MUFRODAT'])
+        {
+          'tipeSoal': type,
+          'opsiList': [
+            {'id': 'a', 'teks': 'نعم'}
+          ]
+        },
     ];
     for (final q in questions) {
       await t.pumpWidget(app(
@@ -345,7 +366,7 @@ void main() {
               owner: '001',
               tauzi: false,
               data: {
-                'sesiId': 'test',
+                'sesiId': 'test-${q['tipeSoal']}',
                 'sisaWaktuDetik': 900,
                 'soal': [
                   {'soalId': 'q1', 'pertanyaan': '<p>Soal uji</p>', ...q}
@@ -354,6 +375,8 @@ void main() {
           scale: 2));
       await t.pumpAndSettle();
       expect(t.takeException(), isNull, reason: q['tipeSoal'].toString());
+      expect(find.text('Soal 1 dari 1'), findsOneWidget,
+          reason: q['tipeSoal'].toString());
       await t.pumpWidget(const SizedBox());
     }
   });

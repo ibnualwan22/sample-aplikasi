@@ -32,11 +32,12 @@ void main() {
         throwsA(isA<PortalError>()));
     expect(requests, 2);
   });
-  test('Sesi habis menghapus token dan draf tanpa menghapus preferensi umum',
+  test('Sesi habis menghapus token tetapi mempertahankan draf jawaban',
       () async {
     FlutterSecureStorage.setMockInitialValues({
       SantriApi.key: 'lama',
       'siakad.exam.1.1': 'uji',
+      'siakad.exam.v2.portal.owner.session': 'snapshot belum terkirim',
       'preferensi': 'tetap'
     });
     final api = SantriApi(
@@ -50,6 +51,10 @@ void main() {
     await expectLater(api.call('/api/santri/me'), throwsA(isA<PortalError>()));
     expect(expired, true);
     expect(await api.restore(), false);
-    expect(await api.vault.readAll(), {'preferensi': 'tetap'});
+    expect(await api.vault.readAll(), {
+      'siakad.exam.1.1': 'uji',
+      'siakad.exam.v2.portal.owner.session': 'snapshot belum terkirim',
+      'preferensi': 'tetap',
+    });
   });
 }

@@ -20,6 +20,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_html/flutter_html.dart' show Html;
 import 'api.dart';
 import 'exam.dart';
+import 'exam/guard.dart';
+import 'exam/recovery.dart';
 import 'scan.dart';
 import 'file_view.dart';
 import '../services/push_service.dart';
@@ -651,6 +653,7 @@ class _Page extends State<FeaturePage> {
                     : !['BELUM_MULAI', 'MENGERJAKAN'].contains(u['status'])))
             .toList();
         return [
+          ExamRecovery(api: api, owner: val(user['id'])),
           filters(['Semua', 'Dapat dikerjakan', 'Lainnya']),
           if (visible.isEmpty)
             const MarkazState(
@@ -669,9 +672,18 @@ class _Page extends State<FeaturePage> {
                         : 'Mulai ujian', () async {
                   final kode = await ask('Kode akses ujian');
                   if (kode != null) {
-                    final d = await get('ujian/start',
-                        body: {'paketId': u['id'], 'kodeAkses': kode});
-                    await exam(obj(d), false);
+                    final capability = await get('ujian/mobile-sync');
+                    if (capability['protocol'] != 1)
+                      throw const PortalError(
+                          'Backend ujian mobile belum siap. Hubungi pengawas.');
+                    await ExamGuard.begin();
+                    try {
+                      final d = await get('ujian/start',
+                          body: {'paketId': u['id'], 'kodeAkses': kode});
+                      await exam(obj(d), false);
+                    } finally {
+                      await ExamGuard.end();
+                    }
                   }
                 }),
               for (final m in rows(u['mapelScores']))
